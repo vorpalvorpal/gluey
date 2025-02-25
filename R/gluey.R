@@ -114,12 +114,10 @@ process_gluey_text <- function(text, envir) {
 
     # Special handling for different object types
     if (inherits(expr, "data.frame")) {
-      checkmate::assert_package_installed("pander")
       return(pander::pandoc.table(expr, justify = "left", style = "multiline"))
     }
 
     if (inherits(expr, "ggplot")) {
-      checkmate::assert_package_installed("ggplot2")
       tmp <- tempfile(fileext = ".png")
       ggplot2::ggsave(tmp, expr, width = 7, height = 5)
       return(paste0("![](", tmp, ")"))
@@ -130,7 +128,6 @@ process_gluey_text <- function(text, envir) {
   }
 
   # Use glue with our custom transformer
-  checkmate::assert_package_installed("glue")
 
   # Process pluralization context
   qty <- NULL
@@ -237,6 +234,5 @@ print.gluey <- function(x, ...) {
 #' @return The result of knitr::asis_output
 #' @export
 knit_print.gluey <- function(x, ...) {
-  checkmate::assert_package_installed("knitr")
   knitr::asis_output(x, ...)
 }

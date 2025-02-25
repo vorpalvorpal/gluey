@@ -25,7 +25,6 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
   is_quarto <- detect_quarto_document(text)
 
   if (is_quarto) {
-    checkmate::assert_package_installed("quarto")
     result <- quarto::quarto_render(temp_file, output_file = output, ...)
   } else {
     result <- knitr::knit(temp_file, output, ...)

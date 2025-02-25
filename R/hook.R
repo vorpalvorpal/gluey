@@ -61,7 +61,7 @@ is_gluey_enabled <- function(yaml_data) {
 #' @noRd
 parse_yaml_header <- function(text) {
   # Check for YAML header between --- markers
-  if (grepl("^---\\s*$", text, multiline = TRUE)) {
+  if (grepl("^---\\s*$", text)) {
     yaml_lines <- grep("^---\\s*$", strsplit(text, "\n")[[1]])
 
     if (length(yaml_lines) >= 2) {
