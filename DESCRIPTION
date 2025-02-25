@@ -1,22 +1,25 @@
 Package: gluey
-Type: Package
-Title: What the Package Does (Title Case)
+Title: Markdown Text Generation with Enhanced Templates
 Version: 0.1.0
-Authors@R: c(
-    person(
-      "Jane", "Doe",
-      email = "jane@example.com",
-      role = c("aut", "cre")
-    )
-  )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
+Authors@R: 
+    person("Robin", "Shannon", , "first.last@example.com", role = c("aut", "cre"))
+Description: Generate markdown text using the familiar syntax of 'glue' with
+    enhanced templating features. Unlike 'cli' which produces styled console
+    output, 'gluey' outputs plain markdown text, making it ideal for document
+    generation in R Markdown and Quarto documents.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
-Suggests: 
+RoxygenNote: 7.2.3
+Imports:
+    glue,
+    uuid,
+    pander,
+    ggplot2,
+    knitr,
+    checkmate,
+    cli
+Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 URL: https://github.com/vorpalvorpal/gluey

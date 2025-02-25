@@ -1,68 +1,56 @@
-#' Generate markdown text using glue-style syntax
+#' @title Gluey: Markdown Text Generation with Enhanced Templates
+#' @description Generate markdown text using familiar glue syntax with enhanced
+#' templating features and pluralization.
 #'
-#' @description
-#' `gluey()` generates markdown text using glue-style syntax for
-#' interpolation, with additional markdown-specific formatting options.
-#' It leverages the cli package's pluralization and interpolation
-#' mechanisms but outputs plain markdown rather than styled console text.
+#' @import glue
+#' @importFrom uuid UUIDgenerate
+#' @importFrom pander pandoc.table
+"_PACKAGE"
+
+#' Format text with glue syntax, vector formatting, and pluralization
 #'
-#' @details
-#' When calling `gluey()` directly, use standard glue syntax with single braces `{var}`.
-#' In R Markdown or Quarto documents, use double braces `{{var}}` for interpolation.
-#'
-#' @param text Character vector with glue-style markup
-#' @param ... Additional values to interpolate into text
-#' @param .envir Environment in which to evaluate expressions
-#'
-#' @return A character string with markdown formatting
-#'
+#' @param text Text template with glue-style interpolation
+#' @param ... Additional values to use for interpolation
+#' @param .envir Environment for evaluation
+#' @return Formatted text
 #' @export
-#'
 #' @examples
-#' # Basic interpolation
-#' name <- "Alice"
+#' name <- "World"
 #' gluey("Hello, {name}!")
 #'
 #' # Pluralization
-#' n_files <- 3
-#' gluey("Found {n_files} file{?s}")
+#' n_files <- 0
+#' gluey("Found {n_files} file{?s}.")
+#' n_files <- 1
+#' gluey("Found {n_files} file{?s}.")
 #'
-#' # List formatting
-#' items <- c("apples", "bananas", "oranges")
-#' gluey("{- items}")  # Unordered list
-#' gluey("{1 items}")  # Ordered list
+#' # Vector formatting
+#' fruits <- c("apples", "bananas", "oranges")
+#' gluey("I like {fruits}.")
 gluey <- function(text, ..., .envir = parent.frame()) {
-  # Create a new environment with the passed values
-  values <- list(...)
-  if (length(values) > 0) {
-    env_names <- names(values)
-    if (is.null(env_names)) env_names <- rep("", length(values))
+  # Environment to store state for pluralization
+  values <- new.env(parent = emptyenv())
+  values$empty <- uuid::UUIDgenerate()
+  values$qty <- values$empty
+  values$num_subst <- 0L
+  values$postprocess <- FALSE
+  values$pmarkers <- list()
 
-    for (i in seq_along(values)) {
-      if (env_names[i] == "") {
-        warning("Unnamed arguments to gluey() may not work as expected")
+  # Create a transformer function that handles our special markup
+  transformer <- function(code, envir) {
+    # Check if this is a pluralization directive
+    if (substr(code, 1, 1) == "?") {
+      # The most recent expression sets the quantity
+      if (identical(values$qty, values$empty)) {
+        values$postprocess <- TRUE
+        id <- uuid::UUIDgenerate()
+        values$pmarkers[[id]] <- code
+        return(id)
       } else {
-        assign(env_names[i], values[[i]], envir = .envir)
+        return(process_plural(make_quantity(values$qty), code))
       }
     }
-  }
 
-  # Process the text
-  result <- process_gluey_text(text, .envir)
-
-  # Return the result as a gluey object
-  structure(result, class = "gluey")
-}
-
-#' Process gluey text with markdown-specific transformations
-#'
-#' @param text Text to process
-#' @param envir Environment for evaluation
-#' @return Processed text
-#' @noRd
-process_gluey_text <- function(text, envir) {
-  # Create a transformer function that will handle our special markup
-  transformer <- function(code, envir) {
     # Check if this is a special markdown formatter
     if (grepl("^[-=:1[]\\s+.+", code)) {
       format_type <- substr(code, 1, 1)
@@ -77,41 +65,34 @@ process_gluey_text <- function(text, envir) {
         }
       )
 
+      # Update quantity for pluralization
+      values$num_subst <- values$num_subst + 1
+      values$qty <- expr
+
       if (is.null(expr)) return("")
 
       # Format according to the type
-      # Unordered list
       if (format_type == "-") {
         return(glue_vec(expr, .item = "- {.item}", .sep = "\n"))
-      }
-      # Ordered list
-      else if (format_type == "1") {
+      } else if (format_type == "1") {
         return(glue_vec(expr, .item = "1. {.item}", .sep = "\n"))
-      }
-      # Definition list
-      else if (format_type == "=") {
+      } else if (format_type == "=") {
         if (is.null(names(expr)) || any(names(expr) == "")) {
           stop("Definition lists require named vectors")
         }
         return(glue_vec(expr, .item = "{.name}\n:    {.item}", .sep = "\n"))
-      }
-      # YAML block
-      else if (format_type == ":") {
+      } else if (format_type == ":") {
         if (is.null(names(expr)) || any(names(expr) == "")) {
           stop("YAML formatting requires named vectors")
         }
         return(glue_vec(expr, .item = "{.name}: {.item}", .sep = "\n",
           .vec = "---\n{.vec}\n---"))
-      }
-      # Task list
-      else if (format_type == "[") {
+      } else if (format_type == "[") {
         if (is.null(names(expr))) {
-          # All tasks are incomplete
           return(glue_vec(expr, .item = "- [ ] {.item}", .sep = "\n"))
         } else {
-          # Use names to determine if tasks are complete
           return(glue_vec(expr, .sep = "\n",
-            .item = "- [{if (.name != '') 'x' else ' '}] {.item}"))
+            .item = "- [{if (.name == 'done') 'x' else ' '}] {.item}"))
         }
       }
     }
@@ -127,18 +108,20 @@ process_gluey_text <- function(text, envir) {
         }
       )
 
+      # Update quantity for pluralization
+      values$num_subst <- values$num_subst + 1
+      values$qty <- expr
+
       if (is.null(expr)) return("")
 
       # Format with 'or' instead of 'and'
       return(glue_vec(expr, .last = " or "))
     }
 
-    # Process pluralization
-    if (substr(code, 1, 1) == "?") {
-      return(process_pluralization(code, envir))
-    }
+    # For normal expressions
+    values$num_subst <- values$num_subst + 1
 
-    # Handle data frames
+    # Evaluate the expression
     expr <- tryCatch(
       eval(parse(text = code, keep.source = FALSE), envir = envir),
       error = function(e) {
@@ -146,6 +129,9 @@ process_gluey_text <- function(text, envir) {
         return(NULL)
       }
     )
+
+    # Update quantity for pluralization - this is key
+    values$qty <- expr
 
     if (is.null(expr)) return("")
 
@@ -160,114 +146,53 @@ process_gluey_text <- function(text, envir) {
       return(paste0("![](", tmp, ")"))
     }
 
-    # Default handling - convert to character and collapse
+    # Use our own vector formatting
     return(glue_vec(expr))
   }
 
-  # Process pluralization context
-  qty <- NULL
-  if (length(text) > 0) {
-    # Look for variables that set the quantity
-    matches <- gregexpr("\\{[^{}]+\\}", text, perl = TRUE)
-    if (matches[[1]][1] != -1) {
-      expr_matches <- regmatches(text, matches)[[1]]
+  # Process with glue
+  raw <- glue::glue(text, .envir = .envir, .transformer = transformer)
 
-      for (expr in expr_matches) {
-        # Extract the expression without braces
-        expr_content <- substr(expr, 2, nchar(expr) - 1)
-        if (!grepl("^\\?", expr_content)) {
-          # Try to evaluate as a quantity
-          result <- tryCatch(
-            eval(parse(text = expr_content), envir = envir),
-            error = function(e) NULL
-          )
-
-          if (!is.null(result)) {
-            if (is.numeric(result) || is.character(result)) {
-              qty <- result
-              break  # Use the first valid quantity found
-            }
-          }
-        }
-      }
-    }
-  }
-
-  # Add quantity to the environment for pluralization
-  if (!is.null(qty)) {
-    envir$._gluey_qty <- qty
-  }
-
-  # Process the text with glue
-  glue::glue(text, .transformer = transformer, .envir = envir)
+  # Post-process pluralization markers
+  post_process_plurals(raw, values)
 }
 
-#' Process pluralization directives
+#' Process document with gluey syntax (double braces)
 #'
-#' @param code Pluralization directive (e.g., "?s" or "?y/ies")
-#' @param envir Environment with quantity variable
-#' @return Appropriate pluralization suffix
-#' @noRd
-process_pluralization <- function(code, envir) {
-  # Get the quantity from the environment
-  qty <- envir$._gluey_qty
-
-  if (is.null(qty)) {
-    warning("No quantity found for pluralization")
-    return("")
-  }
-
-  # Determine the quantity value
-  if (is.numeric(qty)) {
-    n <- qty
-  } else {
-    n <- length(qty)
-  }
-
-  # Process the pluralization directive
-  parts <- strsplit(code, "/", fixed = TRUE)[[1]]
-  parts <- parts[-1]  # Remove the "?" part
-
-  if (length(parts) == 0) {
-    # Simple pluralization: ?s
-    suffix <- substr(code, 2, nchar(code))
-    return(if (n == 1) "" else suffix)
-  } else if (length(parts) == 1) {
-    # Simple suffix: ?s
-    return(if (n == 1) "" else parts[1])
-  } else if (length(parts) == 2) {
-    # Singular/plural: ?y/ies
-    return(if (n == 1) parts[1] else parts[2])
-  } else if (length(parts) == 3) {
-    # Zero/singular/plural: ?no/a/many
-    if (n == 0) return(parts[1])
-    if (n == 1) return(parts[2])
-    return(parts[3])
-  } else {
-    warning("Invalid pluralization directive: ", code)
-    return("")
-  }
-}
-
-#' Print method for gluey objects
-#'
-#' @param x A gluey object
-#' @param ... Additional arguments (unused)
-#'
-#' @return Invisibly returns the input object
+#' @param text Document text to process
+#' @param .envir Environment for evaluation
+#' @return Processed document
 #' @export
-print.gluey <- function(x, ...) {
-  cat(x)
-  invisible(x)
+gluey_process <- function(text, .envir = parent.frame()) {
+  # Convert double braces to single braces
+  text <- gsub("\\{\\{([^{}]+)\\}\\}", "{\\1}", text)
+
+  # Process with our custom pluralization
+  gluey(text, .envir = .envir)
 }
 
-#' Knit print method for gluey objects
+#' Custom knit function for R Markdown/Quarto
 #'
-#' @param x A gluey object
-#' @param ... Additional arguments passed to knitr::asis_output
-#'
-#' @return The result of knitr::asis_output
+#' @param input Input file
+#' @param ... Additional parameters passed to knitr::knit
+#' @return Knitted document output
 #' @export
-knit_print.gluey <- function(x, ...) {
-  knitr::asis_output(x, ...)
+gluey_knit <- function(input, ...) {
+  # Check if gluey preprocessing is enabled
+  enabled <- getOption("gluey.enabled", TRUE)
+
+  # Read input file
+  text <- readLines(input, warn = FALSE)
+
+  # Process with gluey if enabled
+  if (enabled) {
+    text <- gluey_process(paste(text, collapse = "\n"))
+  }
+
+  # Write to temporary file for knitr
+  tmp <- tempfile(fileext = ".Rmd")
+  writeLines(text, tmp)
+
+  # Process with knitr
+  knitr::knit(tmp, ...)
 }
