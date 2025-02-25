@@ -18,6 +18,7 @@
 #' @importFrom utils packageVersion
 .onAttach <- function(libname, pkgname) {
   packageStartupMessage("gluey ", utils::packageVersion("gluey"), " loaded")
-  packageStartupMessage("Use {{var}} syntax for interpolation, {{? s}} for pluralisation")
+  packageStartupMessage("Use {var} syntax for direct interpolation, {?s} for pluralisation")
+  packageStartupMessage("In documents, use {{var}} syntax for interpolation, {{?s}} for pluralisation")
   invisible()
 }

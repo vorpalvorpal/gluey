@@ -1,164 +1,123 @@
 #' Format vectors for markdown output
 #'
 #' @description
-#' Formats a vector into markdown text with various styling options.
+#' Formats a vector into markdown text with styling options. Uses glue for interpolation
+#' and follows a functional approach for vector processing.
 #'
-#' @param x Vector to format
-#' @param format Format type: "-" (unordered list), "1" (ordered list),
-#'   "=" (definition list), ":" (YAML), "[" (task list), or NULL (plain text)
-#' @param sep Separator between items when format is NULL
-#' @param last Separator before the last item when format is NULL
-#' @param pre Text to insert before the entire vector
-#' @param post Text to insert after the entire vector
-#' @param name_pre Text to insert before each name (for named vectors)
-#' @param name_post Text to insert after each name (for named vectors)
-#' @param item_pre Text to insert before each item
-#' @param item_post Text to insert after each item
-#' @param name_fn Function to apply to each name
-#' @param item_fn Function to apply to each item
+#' @param .x Vector to format
+#' @param .item Template for each item using `{.item}` and `{.name}` for interpolation
+#' @param .vec Template for the entire vector using `{.vec}` for interpolation
+#' @param .sep Separator between items (default: ", ")
+#' @param .last Separator before the last item (default: ", and ")
+#' @param .width Maximum line width for collapsed output
+#' @param .transformer_name Function to transform each name before interpolation
+#' @param .transformer_item Function to transform each item before interpolation
+#' @param .envir Environment for evaluating glue expressions
+#' @param .trim Whether to trim the input template with `trim()` or not (default: TRUE)
+#' @param ... Additional arguments passed to [glue::glue()]
 #'
 #' @return Formatted markdown text
 #' @export
 #'
 #' @examples
-#' # Simple list formatting
-#' items <- c("apples", "bananas", "oranges")
-#' glue_vec(items, format = "-")  # Unordered list
-#' glue_vec(items, format = "1")  # Ordered list
+#' # Simple vector formatting
+#' fruits <- c("apples", "bananas", "oranges")
+#' glue_vec(fruits)  # "apples, bananas, and oranges"
 #'
-#' # Named vector for definition list
+#' # With custom separators
+#' glue_vec(fruits, .sep = "; ", .last = " or ")  # "apples; bananas or oranges"
+#'
+#' # Unordered list
+#' glue_vec(fruits, .item = "- {.item}", .sep = "\n")  # "- apples\n- bananas\n- oranges"
+#'
+#' # Ordered list
+#' names(fruits) <- 1:3
+#' glue_vec(fruits, .item = "{.name}. {.item}", .sep = "\n")
+#'
+#' # Definition list
 #' terms <- c(R = "A language for statistical computing",
 #'   Python = "A general-purpose programming language")
-#' glue_vec(terms, format = "=")
+#' glue_vec(terms, .item = "{.name}\n:    {.item}", .sep = "\n")
 #'
-#' # Custom separators for inline text
-#' glue_vec(items, sep = "; ", last = "; and ")
-#'
-#' # Using functions to transform items
-#' glue_vec(items, item_fn = toupper)
-glue_vec <- function(x,
-                     format = NULL,
-                     sep = ", ",
-                     last = ", and ",
-                     pre = "",
-                     post = "",
-                     name_pre = "",
-                     name_post = "",
-                     item_pre = "",
-                     item_post = "",
-                     name_fn = identity,
-                     item_fn = identity) {
-  # Convert to character if needed
-  if (!is.character(x)) {
-    x <- as.character(x)
+#' # Using item transformations
+#' glue_vec(fruits, .transformer_item = toupper)  # "APPLES, BANANAS, and ORANGES"
+glue_vec <- function(.x,
+                     .item = "{.item}",
+                     .vec = "{.vec}",
+                     .sep = ", ",
+                     .last = ", and ",
+                     .width = Inf,
+                     .transformer_name = identity,
+                     .transformer_item = identity,
+                     .envir = parent.frame(),
+                     .trim = TURE,
+                     ...) {
+  # Input validation using checkmate::check and cli::cli_abort
+  if (!checkmate::test_vector(.x)) {
+    cli::cli_abort("Argument {.arg .x} must be a vector.")
+  }
+  if (!checkmate::test_string(.item)) {
+    cli::cli_abort("Argument {.arg .item} must be a string.")
+  }
+  if (!checkmate::test_string(.vec)) {
+    cli::cli_abort("Argument {.arg .vec} must be a string.")
+  }
+  if (!checkmate::test_string(.sep)) {
+    cli::cli_abort("Argument {.arg .sep} must be a string.")
+  }
+  if (!checkmate::test_string(.last)) {
+    cli::cli_abort("Argument {.arg .last} must be a string.")
+  }
+  if (!checkmate::test_number(.width, null.ok = TRUE)) {
+    cli::cli_abort("Argument {.arg .width} must be an integer or NULL.")
+  }
+  if (!checkmate::test_function(.transformer_name)) {
+    cli::cli_abort("Argument {.arg .transformer_name} must be a function.")
+  }
+  if (!checkmate::test_function(.transformer_item)) {
+    cli::cli_abort("Argument {.arg .transformer_item} must be a function.")
   }
 
   # Handle empty vectors
-  if (length(x) == 0) return("")
+  if (length(.x) == 0) return("")
 
-  # Get names if available
-  x_names <- names(x)
-  has_names <- !is.null(x_names) && any(x_names != "")
+  # Convert to character if needed
+  if (!is.character(.x)) {
+    .x <- as.character(.x)
+  }
 
-  # Apply processing functions
-  x <- vapply(x, item_fn, character(1))
+  # Apply item transformers
+  x_transformed <- .transformer_item(.x)
+
+  # Process each item with names if available
+  has_names <- !is.null(names(.x)) && any(names(.x) != "")
+
   if (has_names) {
-    x_names <- vapply(x_names, name_fn, character(1))
-  }
+    # Transform names
+    names_transformed <- .transformer_name(names(.x))
 
-  # Format based on type
-  if (!is.null(format)) {
-    result <- switch(format,
-      "-" = format_unordered_list(x, item_pre, item_post),
-      "1" = format_ordered_list(x, item_pre, item_post),
-      "=" = format_definition_list(x, x_names, name_pre, name_post, item_pre, item_post),
-      ":" = format_yaml(x, x_names),
-      "[" = format_task_list(x, x_names),
-      # Default to plain text if format not recognized
-      format_plain(x, sep, last, item_pre, item_post)
-    )
+    # Apply item template to each item with its name
+    formatted_items <- vapply(seq_along(.x), function(i) {
+      item_env <- new.env(parent = .envir)
+      item_env$.item <- x_transformed[i]
+      item_env$.name <- names_transformed[i]
+      glue::glue(.item, .envir = item_env, ...)
+    }, character(1))
   } else {
-    result <- format_plain(x, sep, last, item_pre, item_post)
+    # Apply item template to each item without names
+    formatted_items <- vapply(seq_along(.x), function(i) {
+      item_env <- new.env(parent = .envir)
+      item_env$.item <- x_transformed[i]
+      item_env$.name <- ""
+      glue::glue(.item, .envir = item_env, ...)
+    }, character(1))
   }
 
-  paste0(pre, result, post)
-}
+  # Collapse items with separators
+  collapsed <- glue::glue_collapse(formatted_items, sep = .sep, last = .last, width = .width)
 
-#' Format vector as an unordered list
-#' @noRd
-format_unordered_list <- function(x, item_pre, item_post) {
-  items <- paste0("- ", item_pre, x, item_post)
-  paste(items, collapse = "\n")
-}
-
-#' Format vector as an ordered list
-#' @noRd
-format_ordered_list <- function(x, item_pre, item_post) {
-  items <- paste0("1. ", item_pre, x, item_post)
-  paste(items, collapse = "\n")
-}
-
-#' Format vector as a definition list
-#' @noRd
-format_definition_list <- function(x, x_names, name_pre, name_post, item_pre, item_post) {
-  if (is.null(x_names) || length(x_names) != length(x)) {
-    stop("Definition lists require named vectors")
-  }
-
-  terms <- paste0(name_pre, x_names, name_post)
-  definitions <- paste0(":    ", item_pre, x, item_post)
-
-  result <- character(length(x) * 2)
-  for (i in seq_along(x)) {
-    idx <- (i - 1) * 2 + 1
-    result[idx] <- terms[i]
-    result[idx + 1] <- definitions[i]
-  }
-
-  paste(result, collapse = "\n")
-}
-
-#' Format vector as YAML
-#' @noRd
-format_yaml <- function(x, x_names) {
-  if (is.null(x_names) || length(x_names) != length(x)) {
-    stop("YAML formatting requires named vectors")
-  }
-
-  yaml_lines <- paste0(x_names, ": ", x)
-  paste0("---\n", paste(yaml_lines, collapse = "\n"), "\n---")
-}
-
-#' Format vector as a task list
-#' @noRd
-format_task_list <- function(x, x_names) {
-  # For task lists, names are used to determine if task is complete
-  if (is.null(x_names)) {
-    # If no names, all tasks are incomplete
-    items <- paste0("- [ ] ", x)
-  } else {
-    # Tasks with non-empty names are considered complete
-    checkboxes <- ifelse(x_names != "", "- [x] ", "- [ ] ")
-    items <- paste0(checkboxes, x)
-  }
-
-  paste(items, collapse = "\n")
-}
-
-#' Format vector as plain text
-#' @noRd
-format_plain <- function(x, sep, last, item_pre, item_post) {
-  # Format items
-  items <- paste0(item_pre, x, item_post)
-
-  # Handle simple cases
-  if (length(items) == 1) return(items)
-  if (length(items) == 2) return(paste0(items[1], last, items[2]))
-
-  # For longer vectors
-  paste0(
-    paste(items[-length(items)], collapse = sep),
-    last,
-    items[length(items)]
-  )
+  # Apply vector template
+  vector_env <- new.env(parent = .envir)
+  vector_env$.vec <- collapsed
+  glue::glue(.vec, .envir = vector_env, ...)
 }

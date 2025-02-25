@@ -22,6 +22,10 @@ interpolation, with additional markdown-specific formatting options.
 It leverages the cli package's pluralization and interpolation
 mechanisms but outputs plain markdown rather than styled console text.
 }
+\details{
+When calling \code{gluey()} directly, use standard glue syntax with single braces \code{{var}}.
+In R Markdown or Quarto documents, use double braces \code{{{var}}} for interpolation.
+}
 \examples{
 # Basic interpolation
 name <- "Alice"

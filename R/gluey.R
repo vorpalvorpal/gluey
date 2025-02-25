@@ -6,6 +6,10 @@
 #' It leverages the cli package's pluralization and interpolation
 #' mechanisms but outputs plain markdown rather than styled console text.
 #'
+#' @details
+#' When calling `gluey()` directly, use standard glue syntax with single braces `{var}`.
+#' In R Markdown or Quarto documents, use double braces `{{var}}` for interpolation.
+#'
 #' @param text Character vector with glue-style markup
 #' @param ... Additional values to interpolate into text
 #' @param .envir Environment in which to evaluate expressions
@@ -76,7 +80,40 @@ process_gluey_text <- function(text, envir) {
       if (is.null(expr)) return("")
 
       # Format according to the type
-      return(glue_vec(expr, format = format_type))
+      # Unordered list
+      if (format_type == "-") {
+        return(glue_vec(expr, .item = "- {.item}", .sep = "\n"))
+      }
+      # Ordered list
+      else if (format_type == "1") {
+        return(glue_vec(expr, .item = "1. {.item}", .sep = "\n"))
+      }
+      # Definition list
+      else if (format_type == "=") {
+        if (is.null(names(expr)) || any(names(expr) == "")) {
+          stop("Definition lists require named vectors")
+        }
+        return(glue_vec(expr, .item = "{.name}\n:    {.item}", .sep = "\n"))
+      }
+      # YAML block
+      else if (format_type == ":") {
+        if (is.null(names(expr)) || any(names(expr) == "")) {
+          stop("YAML formatting requires named vectors")
+        }
+        return(glue_vec(expr, .item = "{.name}: {.item}", .sep = "\n",
+          .vec = "---\n{.vec}\n---"))
+      }
+      # Task list
+      else if (format_type == "[") {
+        if (is.null(names(expr))) {
+          # All tasks are incomplete
+          return(glue_vec(expr, .item = "- [ ] {.item}", .sep = "\n"))
+        } else {
+          # Use names to determine if tasks are complete
+          return(glue_vec(expr, .sep = "\n",
+            .item = "- [{if (.name != '') 'x' else ' '}] {.item}"))
+        }
+      }
     }
 
     # Check for alternative joining (or instead of and)
@@ -93,7 +130,7 @@ process_gluey_text <- function(text, envir) {
       if (is.null(expr)) return("")
 
       # Format with 'or' instead of 'and'
-      return(glue_vec(expr, last = " or "))
+      return(glue_vec(expr, .last = " or "))
     }
 
     # Process pluralization
@@ -126,8 +163,6 @@ process_gluey_text <- function(text, envir) {
     # Default handling - convert to character and collapse
     return(glue_vec(expr))
   }
-
-  # Use glue with our custom transformer
 
   # Process pluralization context
   qty <- NULL
