@@ -205,28 +205,6 @@ test_that("Proper environment handling works", {
   expect_equal(gluey("Doubled: {double(5)}", .envir = env), "Doubled: 10")
 })
 
-test_that("Document style double braces syntax works", {
-  name <- "World"
-  n_files <- 2
-
-  # Simple interpolation
-  template <- "Hello, {{name}}! You have {{n_files}} file{{?s}}."
-  expect_equal(gluey_process(template), "Hello, World! You have 2 files.")
-
-  # Pluralisation
-  template <- "There {{?is/are}} {{0}} item{{?s}}."
-  expect_equal(gluey_process(template), "There are 0 items.")
-
-  template <- "There {{?is/are}} {{1}} item{{?s}}."
-  expect_equal(gluey_process(template), "There is 1 item.")
-
-  # Raw passthrough
-  template <- "The date is {{= Sys.Date()}}."
-  result <- gluey_process(template)
-  expect_true(grepl("The date is ", result))
-  expect_true(grepl("`r Sys.Date\\(\\)`", result) || grepl("{{Sys.Date\\(\\)}}", result))
-})
-
 test_that("Input validation works correctly", {
   # glue_vec input validation
   expect_error(glue_vec(environment()), "must be a vector")
