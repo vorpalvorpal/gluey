@@ -40,127 +40,116 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
 #' @return Processed text
 #' @noRd
 process_gluey_expressions <- function(text, envir = parent.frame()) {
-  # Create evaluation environment
-  env <- new.env(parent = envir)
+  # Helper functions
+  format_expr <- function(expr, is_quarto) {
+    if (is_quarto) paste0("{{", expr, "}}") else paste0("`r ", expr, "`")
+  }
 
-  # Split into lines to process line by line
-  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  create_gluey_expr <- function(expr, is_quarto) {
+    expr_escaped <- gsub("\"", "\\\\\"", expr)
+    format_expr(paste0("gluey(\"{", expr_escaped, "}\")"), is_quarto)
+  }
 
-  # Process each line to maintain pluralisation context
-  for (i in seq_along(lines)) {
-    # Track the last non-plural expression on this line
-    last_expr <- NULL
+  create_plural_expr <- function(qty_expr, plur_pattern, is_quarto) {
+    qty_escaped <- gsub("\"", "\\\\\"", qty_expr)
+    plur_escaped <- gsub("\"", "\\\\\"", plur_pattern)
+    format_expr(paste0("gluey(\"{qty(", qty_escaped, ")}{?", plur_escaped, "}\")"), is_quarto)
+  }
 
-    # First handle raw passthrough with {{! var}}
-    raw_pattern <- "\\{\\{\\!\\s*([^{}]*)\\}\\}"
-    raw_matches <- gregexpr(raw_pattern, lines[i], perl = TRUE)
-
-    if (raw_matches[[1]][1] != -1) {
-      raw_match_info <- regmatches(lines[i], raw_matches)[[1]]
-
-      for (expr in raw_match_info) {
-        expr_content <- gsub("\\{\\{\\!\\s*([^{}]*)\\}\\}", "\\1", expr)
-        expr_content <- trimws(expr_content)
-
-        # Update the last expression used (for pluralisation)
-        # Note: We track passthrough variables for pluralisation too
-        last_expr <- expr_content
-
-        # Determine if we're in a Quarto document
-        is_quarto <- detect_quarto_document(text)
-
-        # Convert to appropriate format
-        if (is_quarto) {
-          replacement <- paste0("{{", expr_content, "}}")
-        } else {
-          replacement <- paste0("`r ", expr_content, "`")
-        }
-
-        lines[i] <- sub(expr, replacement, lines[i], fixed = TRUE)
-      }
-    }
-
-    # Process pluralisation expressions {{?singular/plural}}
-    plural_pattern <- "\\{\\{\\?([^{}]*)\\}\\}"
-    plural_matches <- gregexpr(plural_pattern, lines[i], perl = TRUE)
-
-    if (plural_matches[[1]][1] != -1) {
-      plural_match_info <- regmatches(lines[i], plural_matches)[[1]]
-
-      for (expr in plural_match_info) {
-        expr_content <- gsub("\\{\\{\\?([^{}]*)\\}\\}", "\\1", expr)
-        expr_content <- trimws(expr_content)
-
-        # Parse the plural pattern
-        parts <- strsplit(expr_content, "/", fixed = TRUE)[[1]]
-
-        # Generate the replacement expression using the last_expr
-        if (is.null(last_expr)) {
-          warning("Pluralisation directive found without a preceding value expression: ", expr)
-          replacement <- "{{ERROR: No quantity for pluralisation}}"
-        } else {
-          # Create the appropriate replacement with the unified pluralise function
-          if (length(parts) == 1) {
-            # Simple suffix like {{?s}}
-            replacement <- paste0("`r gluey::pluralise(", last_expr, ", plural=\"", parts[1], "\")`")
-          } else if (length(parts) == 2) {
-            # Singular/plural form like {{?y/ies}}
-            replacement <- paste0("`r gluey::pluralise(", last_expr,
-              ", singular=\"", parts[1], "\", plural=\"", parts[2], "\")`")
-          } else if (length(parts) == 3) {
-            # Zero/singular/plural form like {{?no/one/many}}
-            replacement <- paste0("`r gluey::pluralise(", last_expr,
-              ", zero=\"", parts[1], "\", singular=\"", parts[2],
-              "\", plural=\"", parts[3], "\")`")
-          } else {
-            warning("Invalid pluralisation pattern: ", expr_content)
-            replacement <- "{{ERROR: Invalid pluralisation pattern}}"
-          }
-        }
-
-        lines[i] <- sub(expr, replacement, lines[i], fixed = TRUE)
-      }
-    }
-
-    # Process regular double-brace expressions {{var}}
-    pattern <- "\\{\\{([^\\!\\?{}][^{}]*)\\}\\}"
-    matches <- gregexpr(pattern, lines[i], perl = TRUE)
-
-    if (matches[[1]][1] != -1) {
-      match_positions <- matches[[1]]
-      match_lengths <- attr(matches[[1]], "match.length")
-      match_info <- regmatches(lines[i], matches)[[1]]
-
-      # Process matches from left to right to maintain context
-      for (j in seq_along(match_info)) {
-        expr <- match_info[j]
-        expr_content <- gsub("\\{\\{([^{}]*)\\}\\}", "\\1", expr)
-        expr_content <- trimws(expr_content)
-
-        # Update the last expression used (for pluralization)
-        last_expr <- expr_content
-
-        # Check for format specifiers (-, 1, =, :, [)
-        format_char <- substr(expr_content, 1, 1)
-        if (format_char %in% c("-", "1", "=", ":", "[")) {
-          # Handle special formatters
-          expr_content <- trimws(substr(expr_content, 2, nchar(expr_content)))
-
-          # Evaluate with gluey
-          replacement <- paste0("`r gluey::glue_vec(", expr_content,
-            ", format = \"", format_char, "\")`")
-        } else {
-          # Regular expression
-          replacement <- paste0("`r gluey::gluey(\"", expr_content, "\")`")
-        }
-
-        lines[i] <- sub(expr, replacement, lines[i], fixed = TRUE)
-      }
+  extract_var_name <- function(expr) {
+    format_char <- substr(expr, 1, 1)
+    if (format_char %in% c("-", "1", "=", ":", "[", "|")) {
+      trimws(substr(expr, 2))
+    } else {
+      expr
     }
   }
 
-  # Rejoin the lines
-  return(paste(lines, collapse = "\n"))
+  unwrap_qty_no <- function(expr) {
+    if (grepl("^\\s*qty\\((.*)\\)\\s*$", expr)) {
+      gsub("^\\s*qty\\((.*)\\)\\s*$", "\\1", expr)
+    } else if (grepl("^\\s*no\\((.*)\\)\\s*$", expr)) {
+      gsub("^\\s*no\\((.*)\\)\\s*$", "\\1", expr)
+    } else {
+      expr
+    }
+  }
+
+  # Determine document type and prepare processing
+  is_quarto <- detect_quarto_document(text)
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  processed_lines <- character(length(lines))
+
+  for (i in seq_along(lines)) {
+    line <- lines[i]
+    expr_pattern <- "\\{\\{([^{}]*)\\}\\}"
+    expr_matches <- gregexpr(expr_pattern, line, perl = TRUE)
+
+    if (expr_matches[[1]][1] == -1) {
+      processed_lines[i] <- line
+      next
+    }
+
+    all_exprs <- regmatches(line, expr_matches)[[1]]
+    expr_contents <- gsub("\\{\\{([^{}]*)\\}\\}", "\\1", all_exprs)
+
+    # Special case: pluralization before quantity
+    if (length(all_exprs) == 2 &&
+      substr(expr_contents[1], 1, 1) == "?" &&
+      substr(expr_contents[2], 1, 1) != "?") {
+
+      plur_pattern <- substr(expr_contents[1], 2)
+      expr_var2 <- extract_var_name(expr_contents[2])
+      qty_expr <- unwrap_qty_no(expr_var2)
+
+      replacement1 <- create_plural_expr(qty_expr, plur_pattern, is_quarto)
+      replacement2 <- create_gluey_expr(expr_contents[2], is_quarto)
+
+      line <- sub(all_exprs[1], replacement1, line, fixed = TRUE)
+      line <- sub(all_exprs[2], replacement2, line, fixed = TRUE)
+
+      processed_lines[i] <- line
+      next
+    }
+
+    # Regular case: process expressions in order
+    last_expr <- NULL
+
+    for (j in seq_along(all_exprs)) {
+      orig_expr <- all_exprs[j]
+      expr <- expr_contents[j]
+
+      if (substr(expr, 1, 1) == "!") {
+        # Raw passthrough
+        expr_content <- trimws(substr(expr, 2))
+        replacement <- format_expr(expr_content, is_quarto)
+        last_expr <- expr_content
+      } else if (substr(expr, 1, 1) == "?") {
+        # Pluralization
+        if (is.null(last_expr)) {
+          cli::cli_abort(c(
+            "Pluralization directive without a preceding expression: {{?{substr(expr, 2)}}}",
+            "i" = "Each pluralization directive needs an associated quantity expression"
+          ))
+        }
+
+        plur_pattern <- substr(expr, 2)
+        qty_expr <- unwrap_qty_no(last_expr)
+        replacement <- create_plural_expr(qty_expr, plur_pattern, is_quarto)
+      } else {
+        # Regular expression
+        expr_var <- extract_var_name(expr)
+        replacement <- create_gluey_expr(expr, is_quarto)
+        last_expr <- expr_var
+      }
+
+      line <- sub(orig_expr, replacement, line, fixed = TRUE)
+    }
+
+    processed_lines[i] <- line
+  }
+
+  paste(processed_lines, collapse = "\n")
 }
 
 #' Detect if a document is a Quarto document

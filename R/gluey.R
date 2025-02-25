@@ -73,26 +73,26 @@ gluey <- function(text, ..., .envir = parent.frame()) {
 
       # Format according to the type
       if (format_type == "-") {
-        return(glue_vec(expr, .item = "- {.item}", .sep = "\n"))
+        return(glue_vec(expr, .item = "- {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == "1") {
-        return(glue_vec(expr, .item = "1. {.item}", .sep = "\n"))
-      } else if (format_type == "=") {
-        if (is.null(names(expr)) || any(names(expr) == "")) {
-          stop("Definition lists require named vectors")
-        }
-        return(glue_vec(expr, .item = "{.name}\n:    {.item}", .sep = "\n"))
+        return(glue_vec(expr, .item = "1. {.item}", .sep = "\n", .last = "\n"))
+        # } else if (format_type == "=") {
+        #  if (is.null(names(expr)) || any(names(expr) == "")) {
+        #    stop("Definition lists require named vectors")
+        #  }
+        #  return(glue_vec(expr, .item = "{.name}\n:    {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == ":") {
         if (is.null(names(expr)) || any(names(expr) == "")) {
           stop("YAML formatting requires named vectors")
         }
-        return(glue_vec(expr, .item = "{.name}: {.item}", .sep = "\n",
+        return(glue_vec(expr, .item = "{.name}: {.item}", .sep = "\n", .last = "\n",
           .vec = "---\n{.vec}\n---"))
       } else if (format_type == "[") {
         if (is.null(names(expr))) {
-          return(glue_vec(expr, .item = "- [ ] {.item}", .sep = "\n"))
+          return(glue_vec(expr, .item = "- [ ] {.item}", .sep = "\n", .last = "\n"))
         } else {
-          return(glue_vec(expr, .sep = "\n",
-            .item = "- [{if (.name == 'done') 'x' else ' '}] {.item}"))
+          return(glue_vec(expr, .sep = "\n", .last = "\n",
+            .item = "- [{if (.name == '') ' ' else .name}] {.item}"))
         }
       }
     }
@@ -137,7 +137,7 @@ gluey <- function(text, ..., .envir = parent.frame()) {
 
     # Special handling for different object types
     if (inherits(expr, "data.frame")) {
-      return(pander::pandoc.table(expr, justify = "left", style = "multiline"))
+      return(pander::pandoc.table.return(expr, justify = "left", style = "multiline"))
     }
 
     if (inherits(expr, "ggplot")) {

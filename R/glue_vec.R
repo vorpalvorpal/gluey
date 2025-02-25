@@ -50,7 +50,7 @@ glue_vec <- function(.x,
                      .transformer_name = identity,
                      .transformer_item = identity,
                      .envir = parent.frame(),
-                     .trim = TURE,
+                     .trim = TRUE,
                      ...) {
   # Input validation using checkmate::check and cli::cli_abort
   if (!checkmate::test_vector(.x)) {
