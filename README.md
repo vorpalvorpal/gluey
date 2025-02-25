@@ -1,25 +1,303 @@
-
-# gluey
+# gluey <img src="man/figures/logo.png" align="right" height="139" />
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/user/gluey/workflows/R-CMD-check/badge.svg)](https://github.com/user/gluey/actions)
+[![CRAN status](https://www.r-pkg.org/badges/version/gluey)](https://CRAN.R-project.org/package=gluey)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
-The goal of gluey is to ...
+## Overview
+
+`gluey` is a package for generating markdown text using the familiar syntax of `glue` with enhanced templating features. Unlike `cli` which produces styled console output, `gluey` outputs plain markdown text, making it ideal for document generation in R Markdown and Quarto documents.
+
+Key features:
+
+- ✓ **Text Interpolation**: Embed R expressions in double curly braces `{{expr}}`
+- ✓ **Pluralisation**: Smart pluralisation with `{{?s}}` syntax
+- ✓ **Vector Formatting**: Automatic collapsing with customisable separators
+- ✓ **Markdown Formatters**: Special syntax for creating lists, definition lists, YAML blocks, and task lists
+- ✓ **Seamless Integration**: Works with both R Markdown and Quarto
 
 ## Installation
 
-You can install the development version of gluey like so:
+```r
+# Install from CRAN
+install.packages("gluey")
 
-``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+# Or the development version from GitHub
+# install.packages("devtools")
+devtools::install_github("user/gluey")
 ```
 
-## Example
+## Basic Usage
 
-This is a basic example which shows you how to solve a common problem:
+### Text Interpolation
 
-``` r
+```r
 library(gluey)
-## basic example code
+
+name <- "World"
+gluey("Hello, {{name}}!")
+#> Hello, World!
+
+# In Rmd/Qmd documents, use {{name}} directly in markdown text
 ```
 
+### Pluralisation
+
+```r
+n_files <- 0
+gluey("Found {{n_files}} file{{?s}}.")
+#> Found 0 files.
+
+n_files <- 1
+gluey("Found {{n_files}} file{{?s}}.")
+#> Found 1 file.
+
+# Complex pluralisation
+n_people <- 1
+gluey("There {{?is/are}} {{n_people}} {{?person/people}} waiting.")
+#> There is 1 person waiting.
+
+n_people <- 5
+gluey("There {{?is/are}} {{n_people}} {{?person/people}} waiting.")
+#> There are 5 people waiting.
+
+# Zero/singular/plural forms
+n_cats <- 0
+gluey("{{n_cats}} {{?no/one/many}} cat{{?s}} found.")
+#> 0 no cats found.
+```
+
+### Vector Formatting
+
+```r
+# Automatic collapse with commas and "and"
+fruits <- c("apples", "bananas", "oranges")
+gluey("I like {{fruits}}.")
+#> I like apples, bananas, and oranges.
+
+# Alternative joining with custom pattern
+options <- c("tea", "coffee", "water")
+gluey_vec(options, last = " or ")
+#> tea, coffee or water
+```
+
+## Markdown Formatting
+
+### Unordered Lists
+
+```r
+items <- c("First item", "Second item", "Third item with *markdown* formatting")
+gluey("{{- items}}")
+#> - First item
+#> - Second item
+#> - Third item with *markdown* formatting
+```
+
+### Ordered Lists
+
+```r
+steps <- c("Clone the repository", "Install dependencies", "Run tests")
+gluey("{{1 steps}}")
+#> 1. Clone the repository
+#> 1. Install dependencies
+#> 1. Run tests
+```
+
+### Definition Lists
+
+```r
+terms <- c(
+  R = "A language for statistical computing",
+  Python = "A general-purpose programming language",
+  JavaScript = "A language for web development"
+)
+gluey("{{= terms}}")
+#> R
+#> :    A language for statistical computing
+#> Python
+#> :    A general-purpose programming language
+#> JavaScript
+#> :    A language for web development
+```
+
+### YAML Blocks
+
+```r
+metadata <- c(
+  title = "My Document",
+  author = "Jane Doe",
+  date = "2023-05-15"
+)
+gluey("{{: metadata}}")
+#> ---
+#> title: My Document
+#> author: Jane Doe
+#> date: 2023-05-15
+#> ---
+```
+
+### Task Lists
+
+```r
+tasks <- c(
+  done = "Create project structure",
+  done = "Write core functions",
+  "Add documentation",
+  "Write tests"
+)
+gluey("{{[ tasks}}")
+#> - [x] Create project structure
+#> - [x] Write core functions
+#> - [ ] Add documentation
+#> - [ ] Write tests
+```
+
+## Integration with R Markdown and Quarto
+
+### Adding to a Document
+
+Add this to your YAML header:
+
+```yaml
+---
+title: "My Document"
+knit: gluey::gluey_knit
+---
+```
+
+Then use double curly braces directly in your text:
+
+```markdown
+## Introduction
+
+Hello, {{name}}!
+
+{{- items}}
+
+There {{?is/are}} {{n_results}} result{{?s}}.
+```
+
+### Pass-through Syntax
+
+Use `{{! expr}}` to pass variables directly to R Markdown or Quarto without `gluey` processing:
+
+```markdown
+The current date is {{! Sys.Date()}}.
+
+There are {{! total_count}} items in the {{?category/categories}}.
+```
+
+### Manual Processing
+
+You can also use `gluey` explicitly in code chunks:
+
+````markdown
+```{r}
+library(gluey)
+name <- "World"
+items <- c("apple", "banana", "orange")
+```
+
+{{name}} likes {{items}}.
+
+Or with a code chunk:
+
+```{r}
+gluey("Hello, {{name}}! You have {{length(items)}} fruit{{?s}}.")
+```
+````
+
+## Advanced Usage
+
+### Customizing Vector Formatting
+
+```r
+# Customizing list formatting
+authors <- c("Alice Smith", "Bob Jones", "Carol Davis")
+gluey_vec(authors, format = "-", item_pre = "**", item_post = "**")
+#> - **Alice Smith**
+#> - **Bob Jones**
+#> - **Carol Davis**
+
+# Custom separators
+gluey_vec(1:5, sep = " | ", last = " | and finally ")
+#> 1 | 2 | 3 | 4 | and finally 5
+
+# Adding pre/post text to the whole vector
+packages <- c("dplyr", "ggplot2", "purrr")
+gluey_vec(packages, pre = "Required packages: ", post = "", 
+        item_pre = "`", item_post = "`", sep = ", ")
+#> Required packages: `dplyr`, `ggplot2`, `purrr`
+```
+
+### Using `gluey` with Data Frames
+
+```r
+df <- head(mtcars[1:3, 1:4])
+gluey("Car data:\n\n{{df}}")
+#> Car data:
+#> 
+#> ----------------------------------------------
+#>             mpg   cyl   disp     hp
+#> ---------- ----- ----- ------ ------
+#> Mazda RX4  21     6    160     110
+#> 
+#> Mazda RX4  21     6    160     110
+#> Wag
+#> 
+#> Datsun 710 22.8   4    108      93
+#> ----------------------------------------------
+```
+
+### Using with ggplot2
+
+```r
+library(ggplot2)
+plot <- ggplot(mtcars, aes(x = mpg, y = hp)) + 
+  geom_point() + 
+  theme_minimal()
+gluey("Here's a plot of horsepower vs mpg:\n\n{{plot}}")
+#> Here's a plot of horsepower vs mpg:
+#> 
+#> ![](/tmp/RtmpXXXXXX/file123456789.png)
+```
+
+## How It Works
+
+1. `gluey_knit` reads the document before processing
+2. Double curly braces `{{var}}` are converted to R expressions
+3. Pluralisation directives like `{{?s}}` use the preceding value
+4. The processed document is passed to knitr/Quarto for rendering
+
+## Why Double Curly Braces?
+
+- Less ambiguity with normal markdown text
+- Compatible with Quarto's syntax
+- Visually distinct from regular text
+- Reduced likelihood of unintended substitutions
+
+## Configuration
+
+You can configure `gluey` globally:
+
+```r
+options(gluey.enabled = TRUE)  # Enable gluey preprocessing (default)
+options(gluey.enabled = FALSE) # Disable gluey preprocessing
+```
+
+Or per-document via YAML:
+
+```yaml
+params:
+  gluey.enabled: true
+```
+
+## Contributing
+
+Contributions welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
