@@ -226,3 +226,6 @@ last_character <- function(x) {
 escape_regex <- function(x) {
   gsub("([\\^\\$\\.\\|\\(\\)\\[\\]\\*\\+\\?\\{\\}\\\\])", "\\\\\\1", x)
 }
+
+# Helper string concatenation operator
+"%+%" <- function(a, b) paste0(a, b)

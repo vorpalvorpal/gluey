@@ -54,8 +54,30 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, t
     if (is_quarto) paste0("{{", expr, "}}") else paste0("`r ", expr, "`")
   }
 
+  # Extract trailing newlines
+  trailing_newlines <- ""
+  if (grepl("\n$", text)) {
+    # Count trailing newlines using direct iteration (most reliable method)
+    n_count <- 0
+    for (i in nchar(text):1) {
+      if (substr(text, i, i) == "\n") {
+        n_count <- n_count + 1
+      } else {
+        break
+      }
+    }
+    trailing_newlines <- paste(rep("\n", n_count), collapse = "")
+  }
+
+  # Remove trailing newlines before processing
+  text_trimmed <- if (nchar(trailing_newlines) > 0) {
+    substr(text, 1, nchar(text) - nchar(trailing_newlines))
+  } else {
+    text
+  }
+
   # Process line by line
-  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  lines <- strsplit(text_trimmed, "\n", fixed = TRUE)[[1]]
   processed_lines <- character(length(lines))
 
   for (i in seq_along(lines)) {
@@ -84,8 +106,8 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, t
       modified_line <- gsub(orig, original_to_gluey[[orig]], modified_line, fixed = TRUE)
     }
 
-    # Escape quotes in the modified line
-    escaped_line <- gsub('"', '\\\\"', modified_line, fixed = TRUE)
+    # Escape quotes with the same approach for both formats
+    escaped_line <- gsub('"', '\\"', modified_line, fixed = TRUE)
 
     # Wrap the entire line in a single gluey call
     gluey_call <- paste0('gluey("', escaped_line, '")')
@@ -94,5 +116,7 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, t
     processed_lines[i] <- format_expr(gluey_call, is_quarto)
   }
 
-  return(paste(processed_lines, collapse = "\n"))
+  # Combine processed lines and add trailing newlines back
+  result <- paste(processed_lines, collapse = "\n")
+  return(paste0(result, trailing_newlines))
 }

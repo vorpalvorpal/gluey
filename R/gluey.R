@@ -8,22 +8,31 @@ create_gluey_transformer <- function(values) {
     # Handle direct glue expression with ! prefix
     if (substr(code, 1, 1) == "!") {
       expr_text <- trimws(substr(code, 2, nchar(code)))
-      return(glue::glue(expr_text, .envir = envir))
+
+      # Actually evaluate the expression instead of using glue on it
+      result <- tryCatch(
+        eval(parse(text = expr_text, keep.source = FALSE), envir = envir),
+        error = function(e) {
+          warning("Failed to evaluate {!", expr_text, "}: ", e$message)
+          return(NULL)
+        }
+      )
+
+      # Return the result directly
+      if (is.null(result)) return("")
+      return(as.character(result))
     }
 
     # Check if this is a pluralization directive
     if (substr(code, 1, 1) == "?") {
-      # Store pluralization marker regardless of whether we have a quantity
-      values$postprocess <- TRUE
-      id <- uuid::UUIDgenerate()
-      values$pmarkers[[id]] <- code
-
-      # If we already have a quantity, we can process it now
-      # Otherwise, return the ID for later processing
-      if (!identical(values$qty, values$empty)) {
-        return(process_plural(make_quantity(values$qty), code))
-      } else {
+      # The most recent expression sets the quantity
+      if (identical(values$qty, values$empty)) {
+        values$postprocess <- TRUE
+        id <- uuid::UUIDgenerate()
+        values$pmarkers[[id]] <- code
         return(id)
+      } else {
+        return(process_plural(make_quantity(values$qty), code))
       }
     }
 
