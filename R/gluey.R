@@ -76,11 +76,11 @@ gluey <- function(text, ..., .envir = parent.frame()) {
         return(glue_vec(expr, .item = "- {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == "1") {
         return(glue_vec(expr, .item = "1. {.item}", .sep = "\n", .last = "\n"))
-        # } else if (format_type == "=") {
-        #  if (is.null(names(expr)) || any(names(expr) == "")) {
-        #    stop("Definition lists require named vectors")
-        #  }
-        #  return(glue_vec(expr, .item = "{.name}\n:    {.item}", .sep = "\n", .last = "\n"))
+      } else if (format_type == "=") {
+        if (is.null(names(expr)) || any(names(expr) == "")) {
+          stop("Definition lists require named vectors")
+        }
+        return(glue_vec(expr, .item = "{.name}\n:    {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == ":") {
         if (is.null(names(expr)) || any(names(expr) == "")) {
           stop("YAML formatting requires named vectors")

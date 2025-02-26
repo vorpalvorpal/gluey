@@ -54,7 +54,7 @@ test_that("Pluralisation functionality works", {
   # Helper functions
   expect_equal(gluey("Found {no(0)} file{?s}."), cli::pluralize("Found {no(0)} file{?s}."))
   expect_equal(gluey("Found {no(1)} file{?s}."), cli::pluralize("Found {no(1)} file{?s}."))
-  expect_equal(gluey("{3}/{10} {qty(3)} file{?s} need updating."), cli::pluralize("{3}/{10} {qty(3)} file{?s} need updating."))
+  expect_equal(gluey("{3}/{10} {qty(3)}file{?s} need updating."), cli::pluralize("{3}/{10} {cli::qty(3)}file{?s} need updating."))
 
   # Pluralisation with dots and other punctuation
   n <- 1

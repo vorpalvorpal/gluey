@@ -60,7 +60,7 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
   extract_var_name <- function(expr) {
     format_char <- substr(expr, 1, 1)
     if (format_char %in% c("-", "1", "=", ":", "[", "|")) {
-      trimws(substr(expr, 2))
+      trimws(substr(expr, 2, nchar(expr)))
     } else {
       expr
     }
@@ -98,7 +98,7 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
       substr(expr_contents[1], 1, 1) == "?" &&
       substr(expr_contents[2], 1, 1) != "?") {
 
-      plur_pattern <- substr(expr_contents[1], 2)
+      plur_pattern <- substr(expr_contents[1], 2, nchar(expr))
       expr_var2 <- extract_var_name(expr_contents[2])
       qty_expr <- unwrap_qty_no(expr_var2)
 
@@ -121,19 +121,19 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
 
       if (substr(expr, 1, 1) == "!") {
         # Raw passthrough
-        expr_content <- trimws(substr(expr, 2))
+        expr_content <- trimws(substr(expr, 2, nchar(expr)))
         replacement <- format_expr(expr_content, is_quarto)
         last_expr <- expr_content
       } else if (substr(expr, 1, 1) == "?") {
         # Pluralization
         if (is.null(last_expr)) {
           cli::cli_abort(c(
-            "Pluralization directive without a preceding expression: {{?{substr(expr, 2)}}}",
+            "Pluralization directive without a preceding expression: {{?{substr(expr, 2, nchar(expr))}}}",
             "i" = "Each pluralization directive needs an associated quantity expression"
           ))
         }
 
-        plur_pattern <- substr(expr, 2)
+        plur_pattern <- substr(expr, 2, nchar(expr))
         qty_expr <- unwrap_qty_no(last_expr)
         replacement <- create_plural_expr(qty_expr, plur_pattern, is_quarto)
       } else {
