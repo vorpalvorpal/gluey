@@ -14,7 +14,9 @@ gluey_render(input, ...)
 
 \item{output}{Output file path (or NULL)}
 
-\item{...}{Additional arguments to pass to knit or quarto_render}
+\item{envir}{Environment for evaluation}
+
+\item{...}{Additional arguments to pass to rmarkdown::render or quarto_render}
 }
 \value{
 The result of the rendering process

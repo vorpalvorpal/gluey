@@ -1,6 +1,3 @@
-library(testthat)
-library(gluey)
-
 test_that("Simple suffix pluralization works", {
   # Testing numeric values
   expect_equal(gluey("Found {0} file{?s}."), cli::pluralize("Found {0} file{?s}."))

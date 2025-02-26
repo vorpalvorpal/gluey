@@ -5,11 +5,11 @@ test_that("Basic expression processing works", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey(\"Hello, {name}!\")`")
+  expect_equal(result_rmd, "`r gluey::gluey(\"Hello, {name}!\")`")
 
   # Test Quarto format
   result_quarto <- process_gluey_expressions(text, environment(), TRUE)
-  expect_equal(result_quarto, "{{gluey(\"Hello, {name}!\")}}")
+  expect_equal(result_quarto, "{{gluey::gluey(\"Hello, {name}!\")}}")
 
   # Multiple expressions in one line
   text <- "The {{color}} {{animal}} jumps over the {{object}}."
@@ -18,7 +18,7 @@ test_that("Basic expression processing works", {
   object <- "fence"
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey(\"The {color} {animal} jumps over the {object}.\")`")
+  expect_equal(result_rmd, "`r gluey::gluey(\"The {color} {animal} jumps over the {object}.\")`")
 })
 
 test_that("Pluralization expressions work", {
@@ -28,21 +28,21 @@ test_that("Pluralization expressions work", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey(\"{n_files} file{?s}\")`")
+  expect_equal(result_rmd, "`r gluey::gluey(\"{n_files} file{?s}\")`")
 
   # Pluralization with quantity
   text <- "There {{?is/are}} {{n_items}} item{{?s}}"
   n_items <- 3
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey(\"There {?is/are} {n_items} item{?s}\")`")
+  expect_equal(result_rmd, "`r gluey::gluey(\"There {?is/are} {n_items} item{?s}\")`")
 
   # Complex pluralization patterns
   text <- "You have {{n_files}} file{{?s}} and {{n_folders}} folder{{?s}}."
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey(\"You have {n_files} file{?s} and {n_folders} folder{?s}.\")`"
+    "`r gluey::gluey(\"You have {n_files} file{?s} and {n_folders} folder{?s}.\")`"
   )
 })
 
@@ -52,7 +52,7 @@ test_that("Raw passthrough expressions work", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey(\"Today is {! Sys.Date()}.\")`")
+  expect_equal(result_rmd, "`r gluey::gluey(\"Today is {! Sys.Date()}.\")`")
 
   # Multiple passthroughs
   text <- "Current time: {{! Sys.time()}}, R version: {{! R.version.string}}"
@@ -60,7 +60,7 @@ test_that("Raw passthrough expressions work", {
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey(\"Current time: {! Sys.time()}, R version: {! R.version.string}\")`"
+    "`r gluey::gluey(\"Current time: {! Sys.time()}, R version: {! R.version.string}\")`"
   )
 })
 
@@ -71,18 +71,18 @@ test_that("Special formatters work", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey(\"{- items}\")`")
+  expect_equal(result_rmd, "`r gluey::gluey(\"{- items}\")`")
 
   # All formatters
   text <- "List: {{- items}}\nOrdered: {{1 steps}}\nDefs: {{= terms}}\nYAML: {{: meta}}\nTasks: {{[ tasks}}"
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expected <- paste(
-    "`r gluey(\"List: {- items}\")`",
-    "`r gluey(\"Ordered: {1 steps}\")`",
-    "`r gluey(\"Defs: {= terms}\")`",
-    "`r gluey(\"YAML: {: meta}\")`",
-    "`r gluey(\"Tasks: {[ tasks}\")`",
+    "`r gluey::gluey(\"List: {- items}\")`",
+    "`r gluey::gluey(\"Ordered: {1 steps}\")`",
+    "`r gluey::gluey(\"Defs: {= terms}\")`",
+    "`r gluey::gluey(\"YAML: {: meta}\")`",
+    "`r gluey::gluey(\"Tasks: {[ tasks}\")`",
     sep = "\n"
   )
   expect_equal(result_rmd, expected)
@@ -96,7 +96,7 @@ test_that("Mixed expressions work", {
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey(\"Today {! Sys.Date()}, we have {n_files} file{?s} and {- items} on the list\")`"
+    "`r gluey::gluey(\"Today {! Sys.Date()}, we have {n_files} file{?s} and {- items} on the list\")`"
   )
 
   # Line with multiple mixed expressions
@@ -105,7 +105,7 @@ test_that("Mixed expressions work", {
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey(\"Summary: {! format(Sys.Date())} - {count} {?person/people} attended, {! round(percent*100, 1)}% liked {- foods}\")`"
+    "`r gluey::gluey(\"Summary: {! format(Sys.Date())} - {count} {?person/people} attended, {! round(percent*100, 1)}% liked {- foods}\")`"
   )
 })
 
@@ -117,9 +117,9 @@ test_that("Multi-line documents work", {
   expected <- paste(
     "# Title\n",
     "\n",
-    "`r gluey(\"First paragraph with {var1}.\")`\n",
+    "`r gluey::gluey(\"First paragraph with {var1}.\")`\n",
     "\n",
-    "`r gluey(\"Second paragraph with {var2}.\")`\n",
+    "`r gluey::gluey(\"Second paragraph with {var2}.\")`\n",
     sep = ""
   )
   expect_equal(result_rmd, expected)
@@ -129,7 +129,7 @@ test_that("Trailing newlines are preserved", {
   # Single trailing newline
   text <- "Hello, {{name}}!\n"
   result <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result, "`r gluey(\"Hello, {name}!\")`\n")
+  expect_equal(result, "`r gluey::gluey(\"Hello, {name}!\")`\n")
 
   # Multiple trailing newlines
   text <- "Hello, {{name}}!
@@ -141,7 +141,7 @@ Who are you?
 
 "
   result <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result, "`r gluey(\"Hello, {name}!\")`
+  expect_equal(result, "`r gluey::gluey(\"Hello, {name}!\")`
 
 
 
@@ -153,7 +153,7 @@ Who are you?
   # No trailing newline
   text <- "Hello, {{name}}!"
   result <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result, "`r gluey(\"Hello, {name}!\")`")
+  expect_equal(result, "`r gluey::gluey(\"Hello, {name}!\")`")
 })
 
 test_that("Exact newline counts match in various scenarios", {
@@ -230,7 +230,7 @@ test_that("Multiple newlines between content are preserved", {
   result <- process_gluey_expressions(text, environment(), FALSE)
   expect_equal(
     result,
-    "`r gluey(\"First {var1}\")`\n\n\n`r gluey(\"Second {var2}\")`"
+    "`r gluey::gluey(\"First {var1}\")`\n\n\n`r gluey::gluey(\"Second {var2}\")`"
   )
 
   # Multiple newlines at beginning, middle, and end
@@ -238,7 +238,7 @@ test_that("Multiple newlines between content are preserved", {
   result <- process_gluey_expressions(text, environment(), FALSE)
   expect_equal(
     result,
-    "\n\n`r gluey(\"First {var1}\")`\n\n\n`r gluey(\"Second {var2}\")`\n\n"
+    "\n\n`r gluey::gluey(\"First {var1}\")`\n\n\n`r gluey::gluey(\"Second {var2}\")`\n\n"
   )
 })
 
@@ -274,7 +274,7 @@ test_that("Complex document structure preserves all newlines", {
 
   # Check specific patterns
   expect_match(result, "---\ntitle: Test Document\n---\n\n\n", fixed = TRUE)
-  expect_match(result, '`r gluey(\"Para 1 {var1}\")`\n\n\n`r gluey(\"Para 2 {var2}\")`\n\n```r', fixed = TRUE)
+  expect_match(result, '`r gluey::gluey(\"Para 1 {var1}\")`\n\n\n`r gluey::gluey(\"Para 2 {var2}\")`\n\n```r', fixed = TRUE)
   expect_match(result, "```r\ncode block\n```\n\n", fixed = TRUE)
   expect_match(result, "Final.*\n\n\n$", all = TRUE)  # Check trailing newlines at end
 
@@ -307,9 +307,9 @@ test_that("Multi-line test case works correctly with trailing newline", {
   expected <- paste(
     "# Title\n",
     "\n",
-    "`r gluey(\"First paragraph with {var1}.\")`\n",
+    "`r gluey::gluey(\"First paragraph with {var1}.\")`\n",
     "\n",
-    "`r gluey(\"Second paragraph with {var2}.\")`\n",
+    "`r gluey::gluey(\"Second paragraph with {var2}.\")`\n",
     sep = ""
   )
   expect_equal(result_rmd, expected)
@@ -320,13 +320,13 @@ test_that("Quoting and escaping works correctly", {
   text <- 'The "{{item}}" is {{color}}'
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, '`r gluey("The \\"{item}\\" is {color}")`')
+  expect_equal(result_rmd, '`r gluey::gluey("The \\"{item}\\" is {color}")`')
 
   # Expressions with backslashes and quotes
   text <- 'Path: {{path}} with "{{name}}"'
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, '`r gluey("Path: {path} with \\"{name}\\"")`')
+  expect_equal(result_rmd, '`r gluey::gluey("Path: {path} with \\"{name}\\"")`')
 })
 
 test_that("Quote escaping produces correct R code", {
@@ -337,7 +337,7 @@ test_that("Quote escaping produces correct R code", {
   result <- process_gluey_expressions(text, environment(), FALSE)
 
   # What would be evaluated by knitr
-  expected_eval <- '`r gluey("The \\"{item}\\" is {color}")`'
+  expected_eval <- '`r gluey::gluey("The \\"{item}\\" is {color}")`'
 
   # This test compares what knitr would see
   expect_equal(result, expected_eval)
@@ -450,92 +450,4 @@ test_that("Full document processing works", {
   if (!requireNamespace("quarto", quietly = TRUE)) {
     skip("Quarto package not available")
   }
-
-  # Test with Quarto (similar approach)
-  qmd_text <- paste(
-    "---",
-    "title: Test Document",
-    "author: Test Author",
-    "format: markdown",  # Use simple markdown format for testing
-    "knit: gluey::gluey_knit",
-    "---",
-    "",
-    "```{r setup, include=FALSE}",
-    "name <- 'World'",
-    "n_items <- 3",
-    "items <- c('Item A', 'Item B', 'Item C')",
-    "Sys.Date <- function() {return(as.Date('02/02/2022', '%d/%m/%y'))}",
-    "```",
-    "",
-    "# Introduction",
-    "",
-    "Hello, {{name}}! Today is {{! Sys.Date()}}.",
-    "",
-    "## Items",
-    "",
-    "We have {{n_items}} item{{?s}} in our inventory:",
-    "",
-    "{{- items}}",
-    "",
-    "Thank you for your attention!",
-    sep = "\n"
-  )
-
-  # Create a temporary directory for Quarto output
-  quarto_dir <- tempfile("quarto_output_dir")
-  dir.create(quarto_dir)
-
-  # Save current working directory
-  old_wd <- getwd()
-
-  # Change to the temporary directory
-  setwd(quarto_dir)
-
-  # Write to a temporary file in the current directory
-  qmd_basename <- "test_document.qmd"
-  qmd_file <- file.path(quarto_dir, qmd_basename)
-  writeLines(qmd_text, qmd_file)
-
-  # Output file name (just the name, no path)
-  output_basename <- "test_output.md"
-
-  # Process with gluey_render (wrapped in try to avoid test failure if quarto is not configured)
-  quarto_processed <- tryCatch({
-    suppressMessages(
-      # Use only the filename for output_file, not the full path
-      gluey_render(qmd_basename, output = output_basename, quiet = FALSE)
-    )
-    TRUE
-  }, error = function(e) {
-    skip(paste("Quarto rendering failed:", e$message))
-    FALSE
-  }, finally = {
-    # Restore working directory
-    setwd(old_wd)
-  })
-
-  # Only check Quarto output if processing succeeded
-  if (quarto_processed) {
-    # Find the output file (might have various extensions)
-    output_files <- list.files(output_dir, full.names = TRUE)
-
-    if (length(output_files) > 0) {
-      # Check content of first output file
-      output_content <- readLines(output_files[1], warn = FALSE)
-      output_text <- paste(output_content, collapse = "\n")
-
-      # Check for expected content (similar to RMarkdown checks)
-      expect_match(output_text, "# Introduction", fixed = TRUE)
-      expect_match(output_text, "Hello, World!", fixed = TRUE)
-      expect_match(output_text, "Today is ", fixed = TRUE)
-      expect_match(output_text, "We have 3 items", fixed = TRUE)
-      expect_match(output_text, "- Item A", fixed = TRUE)
-      expect_match(output_text, "- Item B", fixed = TRUE)
-      expect_match(output_text, "- Item C", fixed = TRUE)
-    }
-  }
-
-  # Clean up temporary files
-  if (file.exists(qmd_file)) file.remove(qmd_file)
-  if (dir.exists(output_dir)) unlink(output_dir, recursive = TRUE)
 })

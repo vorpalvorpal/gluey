@@ -1,127 +1,3 @@
-#' Get or create the gluey state environment
-#'
-#' Retrieves the state environment for pluralization from knitr's global
-#' environment, or creates a new one if it doesn't exist or explicitly requested.
-#'
-#' @param new_env Whether to create a fresh environment
-#' @param test_env Optional test environment to use instead of knitr's global env
-#' @return Environment containing pluralization state
-#' @noRd
-get_gluey_state <- function(new_env = FALSE, test_env = NULL) {
-  # Use test environment if provided, otherwise check for a test environment option
-  if (is.null(test_env)) {
-    test_env <- getOption("gluey.test_env")
-  }
-
-  # Use test environment if available, otherwise use knitr's global env
-  knit_env <- if (!is.null(test_env)) {
-    test_env
-  } else if (requireNamespace("knitr", quietly = TRUE)) {
-    tryCatch(
-      {
-        knitr::knit_global()
-      },
-      error = function(e) {
-        # Fallback to a package-specific environment if knitr's global env isn't available
-        if (!exists("gluey_fallback_env", envir = topenv())) {
-          assign("gluey_fallback_env", new.env(), envir = topenv())
-        }
-        get("gluey_fallback_env", envir = topenv())
-      })
-  } else {
-    # Fallback to a package-specific environment if knitr isn't available
-    if (!exists("gluey_fallback_env", envir = topenv())) {
-      assign("gluey_fallback_env", new.env(), envir = topenv())
-    }
-    get("gluey_fallback_env", envir = topenv())
-  }
-
-  if (!exists("gluey_state", envir = knit_env) || new_env) {
-    # Initialize fresh state
-    knit_env$gluey_state <- new.env(parent = emptyenv())
-    knit_env$gluey_state$empty <- uuid::UUIDgenerate()
-    knit_env$gluey_state$qty <- knit_env$gluey_state$empty
-    knit_env$gluey_state$num_subst <- 0L
-    knit_env$gluey_state$postprocess <- FALSE
-    knit_env$gluey_state$pmarkers <- list()
-  }
-
-  return(knit_env$gluey_state)
-}
-
-#' Clean up the gluey state environment
-#'
-#' Removes the state environment from knitr's global environment.
-#'
-#' @param test_env Optional test environment to use instead of knitr's global env
-#' @return Invisible NULL
-#' @noRd
-cleanup_gluey_state <- function(test_env = NULL) {
-  # Use test environment if provided, otherwise check for a test environment option
-  if (is.null(test_env)) {
-    test_env <- getOption("gluey.test_env")
-  }
-
-  # Use test environment if available, otherwise use knitr's global env
-  knit_env <- if (!is.null(test_env)) {
-    test_env
-  } else if (requireNamespace("knitr", quietly = TRUE)) {
-    tryCatch(
-      {
-        knitr::knit_global()
-      },
-      error = function(e) {
-        # If we can't access knit_global, there's nothing to clean up
-        return(invisible(NULL))
-      })
-  } else {
-    # If knitr isn't available, there's nothing to clean up
-    return(invisible(NULL))
-  }
-
-  # Only try to remove if it exists
-  if (exists("gluey_state", envir = knit_env)) {
-    # Use try to suppress warnings if removal fails
-    try(rm("gluey_state", envir = knit_env), silent = TRUE)
-  }
-
-  invisible(NULL)
-}
-
-#' Check if a package is installed and load it if needed
-#'
-#' @param package Package name
-#' @param message Message to display if package is missing
-#' @param load Whether to load the package or just check
-#'
-#' @return TRUE if package is available, FALSE otherwise
-#' @noRd
-check_package <- function(package, message = NULL, load = FALSE) {
-  if (is.null(message)) {
-    message <- paste0(
-      "Package '", package, "' is required but not installed.\n",
-      "Please install it with: install.packages('", package, "')"
-    )
-  }
-
-  if (requireNamespace(package, quietly = TRUE)) {
-    if (load) {
-      tryCatch(
-        {
-          eval(parse(text = paste0("library(", package, ", quietly = TRUE)")))
-        },
-        error = function(e) {
-          warning("Could not load package '", package, "': ", e$message)
-          return(FALSE)
-        })
-    }
-    return(TRUE)
-  } else {
-    warning(message)
-    return(FALSE)
-  }
-}
-
 #' Detect if a document is a Quarto document
 #'
 #' @param text Document text
@@ -147,10 +23,15 @@ detect_quarto_document <- function(text, default = FALSE) {
   # if (???) return(FALSE)
 
   # If using rstudioapi, try getting editor context
-  if (grepl("\\.qmd$", rstudioapi::getSourceEditorContext()$path, ignore.case = TRUE)) {
-    return(TRUE)
-  } else if (grepl("\\.rmd$", rstudioapi::getSourceEditorContext()$path, ignore.case = TRUE)) {
-    return(FALSE)
+  # Only if in interactive mode and rstudioapi is available
+  if (interactive() && requireNamespace("rstudioapi", quietly = TRUE) &&
+    rstudioapi::isAvailable()) {
+    ctx <- rstudioapi::getSourceEditorContext()
+    if (grepl("\\.qmd$", ctx$path, ignore.case = TRUE)) {
+      return(TRUE)
+    } else if (grepl("\\.rmd$", ctx$path, ignore.case = TRUE)) {
+      return(FALSE)
+    }
   }
 
   return(default)
@@ -226,6 +107,3 @@ last_character <- function(x) {
 escape_regex <- function(x) {
   gsub("([\\^\\$\\.\\|\\(\\)\\[\\]\\*\\+\\?\\{\\}\\\\])", "\\\\\\1", x)
 }
-
-# Helper string concatenation operator
-"%+%" <- function(a, b) paste0(a, b)

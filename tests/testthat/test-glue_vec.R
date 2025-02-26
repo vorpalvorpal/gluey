@@ -1,5 +1,3 @@
-# Test suite for glue_vec function
-
 testthat::test_that("glue_vec handles basic string formatting", {
   # Basic string joining
   items <- c("apple", "banana", "cherry")
