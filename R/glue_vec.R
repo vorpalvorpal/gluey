@@ -10,6 +10,7 @@
 #' @param .sep Separator between items (default: ", ")
 #' @param .last Separator before the last item (default: ", and ")
 #' @param .width Maximum line width for collapsed output
+#' @param .na Character vector to replace NAs in `.x` with. (default = "")
 #' @param .transformer_name Function to transform each name before interpolation
 #' @param .transformer_item Function to transform each item before interpolation
 #' @param .envir Environment for evaluating glue expressions
@@ -47,6 +48,7 @@ glue_vec <- function(.x,
                      .sep = ", ",
                      .last = ", and ",
                      .width = Inf,
+                     .na = "",
                      .transformer_name = identity,
                      .transformer_item = identity,
                      .envir = parent.frame(),
@@ -101,7 +103,7 @@ glue_vec <- function(.x,
       item_env <- new.env(parent = .envir)
       item_env$.item <- x_transformed[i]
       item_env$.name <- names_transformed[i]
-      glue::glue(.item, .envir = item_env, ...)
+      glue::glue(.item, .envir = item_env, .na = .na, ...)
     }, character(1))
   } else {
     # Apply item template to each item without names
@@ -109,7 +111,7 @@ glue_vec <- function(.x,
       item_env <- new.env(parent = .envir)
       item_env$.item <- x_transformed[i]
       item_env$.name <- ""
-      glue::glue(.item, .envir = item_env, ...)
+      glue::glue(.item, .envir = item_env, .na = .na, ...)
     }, character(1))
   }
 
@@ -119,5 +121,5 @@ glue_vec <- function(.x,
   # Apply vector template
   vector_env <- new.env(parent = .envir)
   vector_env$.vec <- collapsed
-  glue::glue(.vec, .envir = vector_env, ...)
+  glue::glue(.vec, .envir = vector_env, .na = .na, ...)
 }

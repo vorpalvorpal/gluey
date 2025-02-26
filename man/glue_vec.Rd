@@ -11,6 +11,7 @@ glue_vec(
   .sep = ", ",
   .last = ", and ",
   .width = Inf,
+  .na = "",
   .transformer_name = identity,
   .transformer_item = identity,
   .envir = parent.frame(),
@@ -30,6 +31,8 @@ glue_vec(
 \item{.last}{Separator before the last item (default: ", and ")}
 
 \item{.width}{Maximum line width for collapsed output}
+
+\item{.na}{Character vector to replace NAs in \code{.x} with. (default = "")}
 
 \item{.transformer_name}{Function to transform each name before interpolation}
 
