@@ -21,7 +21,7 @@ setup_gluey_preprocessing <- function(enabled = TRUE) {
     # Register gluemd engine
     knitr::knit_engines$set(gluemd = function(options) {
       # Process the content with gluey
-      out <- gluey(options$code, .envir = knit_global())
+      out <- gluey(options$code, .envir = knitr::knit_global())
 
       # Return processed content
       knitr::asis_output(out)
