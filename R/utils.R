@@ -4,11 +4,32 @@
 #' environment, or creates a new one if it doesn't exist or explicitly requested.
 #'
 #' @param new_env Whether to create a fresh environment
+#' @param test_env Optional test environment to use instead of knitr's global env
 #' @return Environment containing pluralization state
 #' @noRd
-get_gluey_state <- function(new_env = FALSE) {
-  # Get the knitr global environment
-  knit_env <- knitr::knit_global()
+get_gluey_state <- function(new_env = FALSE, test_env = NULL) {
+  # Use test environment if provided, otherwise use knitr's global env
+  knit_env <- if (!is.null(test_env)) {
+    test_env
+  } else if (requireNamespace("knitr", quietly = TRUE)) {
+    tryCatch(
+      {
+        knitr::knit_global()
+      },
+      error = function(e) {
+        # Fallback to a package-specific environment if knitr's global env isn't available
+        if (!exists("gluey_fallback_env", envir = topenv())) {
+          assign("gluey_fallback_env", new.env(), envir = topenv())
+        }
+        get("gluey_fallback_env", envir = topenv())
+      })
+  } else {
+    # Fallback to a package-specific environment if knitr isn't available
+    if (!exists("gluey_fallback_env", envir = topenv())) {
+      assign("gluey_fallback_env", new.env(), envir = topenv())
+    }
+    get("gluey_fallback_env", envir = topenv())
+  }
 
   if (!exists("gluey_state", envir = knit_env) || new_env) {
     # Initialize fresh state
@@ -27,16 +48,31 @@ get_gluey_state <- function(new_env = FALSE) {
 #'
 #' Removes the state environment from knitr's global environment.
 #'
+#' @param test_env Optional test environment to use instead of knitr's global env
 #' @return Invisible NULL
 #' @noRd
-cleanup_gluey_state <- function() {
-  tryCatch(
-    {
-      rm("gluey_state", envir = knitr::knit_global())
-    },
-    error = function(e) {
-      # Silently handle the case where it doesn't exist
-    })
+cleanup_gluey_state <- function(test_env = NULL) {
+  # Use test environment if provided, otherwise use knitr's global env
+  knit_env <- if (!is.null(test_env)) {
+    test_env
+  } else if (requireNamespace("knitr", quietly = TRUE)) {
+    tryCatch(
+      {
+        knitr::knit_global()
+      },
+      error = function(e) {
+        # If we can't access knit_global, there's nothing to clean up
+        return(invisible(NULL))
+      })
+  } else {
+    # If knitr isn't available, there's nothing to clean up
+    return(invisible(NULL))
+  }
+
+  # Only try to remove if it exists
+  if (exists("gluey_state", envir = knit_env)) {
+    rm("gluey_state", envir = knit_env)
+  }
 
   invisible(NULL)
 }

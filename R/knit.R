@@ -38,9 +38,10 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
 #' @param text Document text
 #' @param envir Environment for evaluation
 #' @param is_quarto Are we modifying a quarto document
+#' @param test_env Optional test environment for testing
 #' @return Processed text
 #' @noRd
-process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
+process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, test_env = NULL) {
   # Helper function to format expressions
   format_expr <- function(expr, is_quarto) {
     if (is_quarto) paste0("{{", expr, "}}") else paste0("`r ", expr, "`")
@@ -92,7 +93,7 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
   }
 
   # Clean up the state environment
-  cleanup_gluey_state()
+  cleanup_gluey_state(test_env)
 
   return(paste(processed_lines, collapse = "\n"))
 }
