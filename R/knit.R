@@ -152,39 +152,6 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
   paste(processed_lines, collapse = "\n")
 }
 
-#' Detect if a document is a Quarto document
-#'
-#' @param text Document text
-#' @param default Default value to return if all detection strategies fail
-#' @return Logical indicating if the document is a Quarto document
-#' @noRd
-detect_quarto_document <- function(text, default = FALSE) {
-  # Parse YAML
-  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
-  if (!grepl("^---$", lines[1])) {
-    cli::cli_abort("Rmd/Qmd file parsed needs to have a yaml header",
-      " starting from line 1 with: ---")
-  }
-  yaml_end <- which(grepl("^---", lines))[2]
-  yaml_content <- yaml::yaml.load(lines[1:yaml_end])
-
-
-  # Look for Quarto-specific YAML elements
-  if (length(intersect(c("format", "quarto-required", "shortcodes"),
-    names(yaml_content)) >= 1)) return(TRUE)
-
-  # Look for Rmarkdown-specific YAML elements
-  # if (???) return(FALSE)
-
-  # If using rstudioapi, try getting editor context
-  if (grepl("\\.qmd$", rstudioapi::getSourceEditorContext()$path, ignore.case = TRUE)) {
-    return(TRUE)
-  } else if (grepl("\\.rmd$", rstudioapi::getSourceEditorContext()$path, ignore.case = TRUE)) {
-    return(FALSE)
-  }
-
-  return(default)
-}
 
 #' @export
 #' @rdname gluey_knit

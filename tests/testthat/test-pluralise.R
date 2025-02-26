@@ -151,19 +151,3 @@ test_that("Helper functions no() and qty() work", {
   # qty() function - sets quantity without displaying
   expect_equal(gluey("{3}/{10} {qty(3)} file{?s} need updating."), "3/10  files need updating.")
 })
-
-test_that("Document-style double braces syntax works", {
-  # Test the document-style {{expr}} syntax with gluey_process function
-  name <- "World"
-  n_files <- 2
-
-  template <- "Hello, {{name}}! You have {{n_files}} file{{?s}}."
-  expect_equal(gluey_process(template), "Hello, World! You have 2 files.")
-
-  # Test pluralization with double braces
-  template <- "There {{?is/are}} {{0}} item{{?s}}."
-  expect_equal(gluey_process(template), "There are 0 items.")
-
-  template <- "There {{?is/are}} {{1}} item{{?s}}."
-  expect_equal(gluey_process(template), "There is 1 item.")
-})

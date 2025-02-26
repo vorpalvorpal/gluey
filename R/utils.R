@@ -50,31 +50,38 @@ check_package <- function(package, message = NULL, load = FALSE) {
   }
 }
 
-#' Detect if a file is a Quarto document
+#' Detect if a document is a Quarto document
 #'
-#' @param file File path or content
-#' @return Logical indicating if the file is a Quarto document
+#' @param text Document text
+#' @param default Default value to return if all detection strategies fail
+#' @return Logical indicating if the document is a Quarto document
 #' @noRd
-detect_quarto_document <- function(file) {
-  # If file is a path, read it first
-  if (length(file) == 1 && file.exists(file)) {
-    content <- paste(readLines(file, warn = FALSE), collapse = "\n")
-  } else {
-    content <- paste(file, collapse = "\n")
+detect_quarto_document <- function(text, default = FALSE) {
+  # Parse YAML
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  if (!grepl("^---$", lines[1])) {
+    cli::cli_abort("Rmd/Qmd file parsed needs to have a yaml header",
+      " starting from line 1 with: ---")
   }
+  yaml_end <- which(grepl("^---", lines))[2]
+  yaml_content <- yaml::yaml.load(lines[1:yaml_end])
+
 
   # Look for Quarto-specific YAML elements
-  has_quarto_yaml <- grepl("format:\\s*", content, perl = TRUE) ||
-    grepl("engine:\\s*quarto", content, perl = TRUE)
+  if (length(intersect(c("format", "quarto-required", "shortcodes"),
+    names(yaml_content)) >= 1)) return(TRUE)
 
-  # Look for file extension if available
-  if (length(file) == 1 && file.exists(file)) {
-    file_ext <- tolower(tools::file_ext(file))
-    is_qmd <- file_ext == "qmd"
-    return(is_qmd || has_quarto_yaml)
+  # Look for Rmarkdown-specific YAML elements
+  # if (???) return(FALSE)
+
+  # If using rstudioapi, try getting editor context
+  if (grepl("\\.qmd$", rstudioapi::getSourceEditorContext()$path, ignore.case = TRUE)) {
+    return(TRUE)
+  } else if (grepl("\\.rmd$", rstudioapi::getSourceEditorContext()$path, ignore.case = TRUE)) {
+    return(FALSE)
   }
 
-  return(has_quarto_yaml)
+  return(default)
 }
 
 #' Extract a substring safely
