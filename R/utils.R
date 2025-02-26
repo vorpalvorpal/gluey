@@ -1,19 +1,44 @@
-#' Generate a random identifier
+#' Get or create the gluey state environment
 #'
-#' Creates a unique random string for use as a temporary marker
-#' in text processing.
+#' Retrieves the state environment for pluralization from knitr's global
+#' environment, or creates a new one if it doesn't exist or explicitly requested.
 #'
-#' @param prefix Optional prefix for the ID
-#' @param length Length of the random part
-#'
-#' @return A random string ID
+#' @param new_env Whether to create a fresh environment
+#' @return Environment containing pluralization state
 #' @noRd
-random_id <- function(prefix = "kw", length = 8) {
-  paste0(
-    prefix,
-    "_",
-    paste0(sample(c(letters, 0:9), length, replace = TRUE), collapse = "")
-  )
+get_gluey_state <- function(new_env = FALSE) {
+  # Get the knitr global environment
+  knit_env <- knitr::knit_global()
+
+  if (!exists("gluey_state", envir = knit_env) || new_env) {
+    # Initialize fresh state
+    knit_env$gluey_state <- new.env(parent = emptyenv())
+    knit_env$gluey_state$empty <- uuid::UUIDgenerate()
+    knit_env$gluey_state$qty <- knit_env$gluey_state$empty
+    knit_env$gluey_state$num_subst <- 0L
+    knit_env$gluey_state$postprocess <- FALSE
+    knit_env$gluey_state$pmarkers <- list()
+  }
+
+  return(knit_env$gluey_state)
+}
+
+#' Clean up the gluey state environment
+#'
+#' Removes the state environment from knitr's global environment.
+#'
+#' @return Invisible NULL
+#' @noRd
+cleanup_gluey_state <- function() {
+  tryCatch(
+    {
+      rm("gluey_state", envir = knitr::knit_global())
+    },
+    error = function(e) {
+      # Silently handle the case where it doesn't exist
+    })
+
+  invisible(NULL)
 }
 
 #' Check if a package is installed and load it if needed
@@ -125,6 +150,24 @@ str_starts_with <- function(x, pattern) {
   if (nchar(x) < pattern_len) return(FALSE)
 
   substr(x, 1, pattern_len) == pattern
+}
+
+#' Get the rest of a string after the first character
+#'
+#' @param x String
+#' @return String minus first character
+#' @noRd
+str_tail <- function(x) {
+  substr(x, 2, nchar(x))
+}
+
+#' Get the last character of a string
+#'
+#' @param x String
+#' @return Last character
+#' @noRd
+last_character <- function(x) {
+  substr(x, nchar(x), nchar(x))
 }
 
 #' Escape special characters in a string for regex

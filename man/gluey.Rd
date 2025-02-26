@@ -2,41 +2,34 @@
 % Please edit documentation in R/gluey.R
 \name{gluey}
 \alias{gluey}
-\title{Generate markdown text using glue-style syntax}
+\title{Format text with glue syntax, vector formatting, and pluralization}
 \usage{
 gluey(text, ..., .envir = parent.frame())
 }
 \arguments{
-\item{text}{Character vector with glue-style markup}
+\item{text}{Text template with glue-style interpolation}
 
-\item{...}{Additional values to interpolate into text}
+\item{...}{Additional values to use for interpolation}
 
-\item{.envir}{Environment in which to evaluate expressions}
+\item{.envir}{Environment for evaluation}
 }
 \value{
-A character string with markdown formatting
+Formatted text
 }
 \description{
-\code{gluey()} generates markdown text using glue-style syntax for
-interpolation, with additional markdown-specific formatting options.
-It leverages the cli package's pluralization and interpolation
-mechanisms but outputs plain markdown rather than styled console text.
-}
-\details{
-When calling \code{gluey()} directly, use standard glue syntax with single braces \code{{var}}.
-In R Markdown or Quarto documents, use double braces \code{{{var}}} for interpolation.
+Format text with glue syntax, vector formatting, and pluralization
 }
 \examples{
-# Basic interpolation
-name <- "Alice"
+name <- "World"
 gluey("Hello, {name}!")
 
 # Pluralization
-n_files <- 3
-gluey("Found {n_files} file{?s}")
+n_files <- 0
+gluey("Found {n_files} file{?s}.")
+n_files <- 1
+gluey("Found {n_files} file{?s}.")
 
-# List formatting
-items <- c("apples", "bananas", "oranges")
-gluey("{- items}")  # Unordered list
-gluey("{1 items}")  # Ordered list
+# Vector formatting
+fruits <- c("apples", "bananas", "oranges")
+gluey("I like {fruits}.")
 }

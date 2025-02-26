@@ -20,24 +20,6 @@ make_quantity <- function(object) {
   return(val)
 }
 
-#' Get the rest of a string after the first character
-#'
-#' @param x String
-#' @return String minus first character
-#' @noRd
-str_tail <- function(x) {
-  substr(x, 2, nchar(x))
-}
-
-#' Get the last character of a string
-#'
-#' @param x String
-#' @return Last character
-#' @noRd
-last_character <- function(x) {
-  substr(x, nchar(x), nchar(x))
-}
-
 #' Process a pluralization directive with a given quantity
 #'
 #' @param qty Quantity

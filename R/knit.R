@@ -41,42 +41,12 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
 #' @return Processed text
 #' @noRd
 process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
-  # Helper functions
+  # Helper function to format expressions
   format_expr <- function(expr, is_quarto) {
     if (is_quarto) paste0("{{", expr, "}}") else paste0("`r ", expr, "`")
   }
 
-  create_gluey_expr <- function(expr, is_quarto) {
-    expr_escaped <- gsub("\"", "\\\\\"", expr)
-    format_expr(paste0("gluey(\"{", expr_escaped, "}\")"), is_quarto)
-  }
-
-  create_plural_expr <- function(qty_expr, plur_pattern, is_quarto) {
-    qty_escaped <- gsub("\"", "\\\\\"", qty_expr)
-    plur_escaped <- gsub("\"", "\\\\\"", plur_pattern)
-    format_expr(paste0("gluey(\"{qty(", qty_escaped, ")}{?", plur_escaped, "}\")"), is_quarto)
-  }
-
-  extract_var_name <- function(expr) {
-    format_char <- substr(expr, 1, 1)
-    if (format_char %in% c("-", "1", "=", ":", "[", "|")) {
-      trimws(substr(expr, 2, nchar(expr)))
-    } else {
-      expr
-    }
-  }
-
-  unwrap_qty_no <- function(expr) {
-    if (grepl("^\\s*qty\\((.*)\\)\\s*$", expr)) {
-      gsub("^\\s*qty\\((.*)\\)\\s*$", "\\1", expr)
-    } else if (grepl("^\\s*no\\((.*)\\)\\s*$", expr)) {
-      gsub("^\\s*no\\((.*)\\)\\s*$", "\\1", expr)
-    } else {
-      expr
-    }
-  }
-
-  # Determine document type and prepare processing
+  # Process line by line
   lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
   processed_lines <- character(length(lines))
 
@@ -93,65 +63,39 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto) {
     all_exprs <- regmatches(line, expr_matches)[[1]]
     expr_contents <- gsub("\\{\\{([^{}]*)\\}\\}", "\\1", all_exprs)
 
-    # Special case: pluralization before quantity
-    if (length(all_exprs) == 2 &&
-      substr(expr_contents[1], 1, 1) == "?" &&
-      substr(expr_contents[2], 1, 1) != "?") {
-
-      plur_pattern <- substr(expr_contents[1], 2, nchar(expr))
-      expr_var2 <- extract_var_name(expr_contents[2])
-      qty_expr <- unwrap_qty_no(expr_var2)
-
-      replacement1 <- create_plural_expr(qty_expr, plur_pattern, is_quarto)
-      replacement2 <- create_gluey_expr(expr_contents[2], is_quarto)
-
-      line <- sub(all_exprs[1], replacement1, line, fixed = TRUE)
-      line <- sub(all_exprs[2], replacement2, line, fixed = TRUE)
-
-      processed_lines[i] <- line
-      next
-    }
-
-    # Regular case: process expressions in order
-    last_expr <- NULL
+    # Process expressions on this line
+    is_first_expr <- TRUE
 
     for (j in seq_along(all_exprs)) {
       orig_expr <- all_exprs[j]
       expr <- expr_contents[j]
 
-      if (substr(expr, 1, 1) == "!") {
-        # Raw passthrough
-        expr_content <- trimws(substr(expr, 2, nchar(expr)))
-        replacement <- format_expr(expr_content, is_quarto)
-        last_expr <- expr_content
-      } else if (substr(expr, 1, 1) == "?") {
-        # Pluralization
-        if (is.null(last_expr)) {
-          cli::cli_abort(c(
-            "Pluralization directive without a preceding expression: {{?{substr(expr, 2, nchar(expr))}}}",
-            "i" = "Each pluralization directive needs an associated quantity expression"
-          ))
-        }
+      # Escape quotes in the expression
+      expr_escaped <- gsub("\"", "\\\\\"", expr)
 
-        plur_pattern <- substr(expr, 2, nchar(expr))
-        qty_expr <- unwrap_qty_no(last_expr)
-        replacement <- create_plural_expr(qty_expr, plur_pattern, is_quarto)
-      } else {
-        # Regular expression
-        expr_var <- extract_var_name(expr)
-        replacement <- create_gluey_expr(expr, is_quarto)
-        last_expr <- expr_var
-      }
+      # Create the replacement
+      # First expression on a line creates a new environment
+      replacement <- format_expr(
+        paste0(
+          "gluey_stateful(\"{", expr_escaped, "}\", new_env = ",
+          ifelse(is_first_expr, "TRUE", "FALSE"), ")"
+        ),
+        is_quarto
+      )
 
+      # Replace in the line
       line <- sub(orig_expr, replacement, line, fixed = TRUE)
+      is_first_expr <- FALSE
     }
 
     processed_lines[i] <- line
   }
 
-  paste(processed_lines, collapse = "\n")
-}
+  # Clean up the state environment
+  cleanup_gluey_state()
 
+  return(paste(processed_lines, collapse = "\n"))
+}
 
 #' @export
 #' @rdname gluey_knit

@@ -5,66 +5,69 @@
 \title{Format vectors for markdown output}
 \usage{
 glue_vec(
-  x,
-  format = NULL,
-  sep = ", ",
-  last = ", and ",
-  pre = "",
-  post = "",
-  name_pre = "",
-  name_post = "",
-  item_pre = "",
-  item_post = "",
-  name_fn = identity,
-  item_fn = identity
+  .x,
+  .item = "{.item}",
+  .vec = "{.vec}",
+  .sep = ", ",
+  .last = ", and ",
+  .width = Inf,
+  .transformer_name = identity,
+  .transformer_item = identity,
+  .envir = parent.frame(),
+  .trim = TRUE,
+  ...
 )
 }
 \arguments{
-\item{x}{Vector to format}
+\item{.x}{Vector to format}
 
-\item{format}{Format type: "-" (unordered list), "1" (ordered list),
-"=" (definition list), ":" (YAML), "[" (task list), or NULL (plain text)}
+\item{.item}{Template for each item using \code{{.item}} and \code{{.name}} for interpolation}
 
-\item{sep}{Separator between items when format is NULL}
+\item{.vec}{Template for the entire vector using \code{{.vec}} for interpolation}
 
-\item{last}{Separator before the last item when format is NULL}
+\item{.sep}{Separator between items (default: ", ")}
 
-\item{pre}{Text to insert before the entire vector}
+\item{.last}{Separator before the last item (default: ", and ")}
 
-\item{post}{Text to insert after the entire vector}
+\item{.width}{Maximum line width for collapsed output}
 
-\item{name_pre}{Text to insert before each name (for named vectors)}
+\item{.transformer_name}{Function to transform each name before interpolation}
 
-\item{name_post}{Text to insert after each name (for named vectors)}
+\item{.transformer_item}{Function to transform each item before interpolation}
 
-\item{item_pre}{Text to insert before each item}
+\item{.envir}{Environment for evaluating glue expressions}
 
-\item{item_post}{Text to insert after each item}
+\item{.trim}{Whether to trim the input template with \code{trim()} or not (default: TRUE)}
 
-\item{name_fn}{Function to apply to each name}
-
-\item{item_fn}{Function to apply to each item}
+\item{...}{Additional arguments passed to \code{\link[glue:glue]{glue::glue()}}}
 }
 \value{
 Formatted markdown text
 }
 \description{
-Formats a vector into markdown text with various styling options.
+Formats a vector into markdown text with styling options. Uses glue for interpolation
+and follows a functional approach for vector processing.
 }
 \examples{
-# Simple list formatting
-items <- c("apples", "bananas", "oranges")
-glue_vec(items, format = "-")  # Unordered list
-glue_vec(items, format = "1")  # Ordered list
+# Simple vector formatting
+fruits <- c("apples", "bananas", "oranges")
+glue_vec(fruits)  # "apples, bananas, and oranges"
 
-# Named vector for definition list
+# With custom separators
+glue_vec(fruits, .sep = "; ", .last = " or ")  # "apples; bananas or oranges"
+
+# Unordered list
+glue_vec(fruits, .item = "- {.item}", .sep = "\n")  # "- apples\n- bananas\n- oranges"
+
+# Ordered list
+names(fruits) <- 1:3
+glue_vec(fruits, .item = "{.name}. {.item}", .sep = "\n")
+
+# Definition list
 terms <- c(R = "A language for statistical computing",
   Python = "A general-purpose programming language")
-glue_vec(terms, format = "=")
+glue_vec(terms, .item = "{.name}\n:    {.item}", .sep = "\n")
 
-# Custom separators for inline text
-glue_vec(items, sep = "; ", last = "; and ")
-
-# Using functions to transform items
-glue_vec(items, item_fn = toupper)
+# Using item transformations
+glue_vec(fruits, .transformer_item = toupper)  # "APPLES, BANANAS, and ORANGES"
 }

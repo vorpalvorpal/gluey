@@ -5,11 +5,13 @@ test_that("Basic expression processing works", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "Hello, `r gluey(\"{name}\")`!")
+  expect_match(result_rmd, "\\`r gluey_stateful\\(\"\\{name\\}\"", all = TRUE)
+  expect_match(result_rmd, "new_env = TRUE", all = TRUE)
 
   # Test Quarto format
   result_quarto <- process_gluey_expressions(text, environment(), TRUE)
-  expect_equal(result_quarto, "Hello, {{gluey(\"{name}\")}}!")
+  expect_match(result_quarto, "\\{\\{gluey_stateful\\(\"\\{name\\}\"", all = TRUE)
+  expect_match(result_quarto, "new_env = TRUE", all = TRUE)
 
   # Multiple expressions
   text <- "The {{color}} {{animal}} jumps over the {{object}}."
@@ -18,10 +20,10 @@ test_that("Basic expression processing works", {
   object <- "fence"
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(
-    result_rmd,
-    "The `r gluey(\"{color}\")` `r gluey(\"{animal}\")` jumps over the `r gluey(\"{object}\")`."
-  )
+  expect_match(result_rmd, "The `r gluey_stateful\\(\"\\{color\\}\"", all = TRUE)
+  expect_match(result_rmd, "jumps over the `r gluey_stateful\\(\"\\{object\\}\"", all = TRUE)
+  expect_match(result_rmd, "new_env = TRUE", all = FALSE)
+  expect_match(result_rmd, "new_env = FALSE", all = FALSE)
 })
 
 test_that("Raw passthrough expressions work", {
@@ -30,20 +32,22 @@ test_that("Raw passthrough expressions work", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "Today is `r Sys.Date()`.")
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{! Sys.Date\\(\\)\\}\"", all = TRUE)
+  expect_match(result_rmd, "new_env = TRUE", all = TRUE)
 
   # Test Quarto format
   result_quarto <- process_gluey_expressions(text, environment(), TRUE)
-  expect_equal(result_quarto, "Today is {{Sys.Date()}}.")
+  expect_match(result_quarto, "\\{\\{gluey_stateful\\(\"\\{! Sys.Date\\(\\)\\}\"", all = TRUE)
+  expect_match(result_quarto, "new_env = TRUE", all = TRUE)
 
   # Multiple passthroughs
   text <- "Current time: {{! Sys.time()}}, R version: {{! R.version.string}}"
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(
-    result_rmd,
-    "Current time: `r Sys.time()`, R version: `r R.version.string`"
-  )
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{! Sys.time\\(\\)\\}\"", all = TRUE)
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{! R.version.string\\}\"", all = TRUE)
+  expect_match(result_rmd, "new_env = TRUE", all = FALSE)
+  expect_match(result_rmd, "new_env = FALSE", all = FALSE)
 })
 
 test_that("Pluralization expressions work", {
@@ -53,7 +57,8 @@ test_that("Pluralization expressions work", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_match(result_rmd, "^`r gluey\\(\"\\{n_files\\}\"\\)` `r gluey\\(\"\\{qty\\(n_files\\)\\}\\{\\?s\\}\"\\)`$")
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{n_files\\}\".*new_env = TRUE", all = TRUE)
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{\\?s\\}\".*new_env = FALSE", all = TRUE)
 
   # Multiple pluralizations
   text <- "{{n_files}} file{{?s}} and {{n_dirs}} director{{?y/ies}}"
@@ -63,8 +68,8 @@ test_that("Pluralization expressions work", {
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expect_match(result_rmd, "file")
   expect_match(result_rmd, "director")
-  expect_match(result_rmd, "qty\\(n_files\\)")
-  expect_match(result_rmd, "qty\\(n_dirs\\)")
+  expect_match(result_rmd, "new_env = TRUE", all = FALSE)
+  expect_match(result_rmd, "new_env = FALSE", all = FALSE)
 
   # Pluralization with qty()
   text <- "{{qty(n_items)}}There {{?is/are}} {{n_items}} item{{?s}}"
@@ -72,8 +77,7 @@ test_that("Pluralization expressions work", {
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expect_match(result_rmd, "qty\\(n_items\\)")
-  # The qty() should be unwrapped for the pluralization
-  expect_match(result_rmd, "qty\\(n_items\\)\\}\\{\\?is/are\\}")
+  expect_match(result_rmd, "\\{\\?is/are\\}")
 })
 
 test_that("Special case of pluralization before quantity works", {
@@ -83,14 +87,15 @@ test_that("Special case of pluralization before quantity works", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_match(result_rmd, "There `r gluey\\(\"\\{qty\\(n_items\\)\\}\\{\\?is/are\\}\"\\)` `r gluey\\(\"\\{n_items\\}\"\\)` ")
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{\\?is/are\\}\"", all = TRUE)
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{n_items\\}\"", all = TRUE)
 
   # With no() function
   text <- "There {{?is/are}} {{no(count)}} item{{?s}}"
   count <- 0
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_match(result_rmd, "qty\\(count\\)")
+  expect_match(result_rmd, "no\\(count\\)")
 })
 
 test_that("Special formatters work", {
@@ -100,7 +105,8 @@ test_that("Special formatters work", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey(\"{- items}\")`")
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{- items\\}\"", all = TRUE)
+  expect_match(result_rmd, "new_env = TRUE", all = TRUE)
 
   # All formatters
   text <- "List: {{- items}}\nOrdered: {{1 steps}}\nDefs: {{= terms}}\nYAML: {{: meta}}\nTasks: {{[ tasks}}"
@@ -117,7 +123,8 @@ test_that("Special formatters work", {
   animals <- c("Dog", "Cat")
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_match(result_rmd, "qty\\(animals\\)")
+  expect_match(result_rmd, "animals")
+  expect_match(result_rmd, "\\?sound/sounds")
 })
 
 test_that("Mixed expressions work", {
@@ -128,9 +135,10 @@ test_that("Mixed expressions work", {
 
   # Test R Markdown format
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_match(result_rmd, "Today `r Sys.Date\\(\\)`")
+  expect_match(result_rmd, "Today")
+  expect_match(result_rmd, "Sys.Date\\(\\)")
   expect_match(result_rmd, "\\{n_files\\}")
-  expect_match(result_rmd, "qty\\(n_files\\)\\}\\{\\?s\\}")
+  expect_match(result_rmd, "\\{\\?s\\}")
   expect_match(result_rmd, "\\{- items\\}")
 
   # Line with multiple mixed expressions
@@ -140,24 +148,19 @@ test_that("Mixed expressions work", {
   foods <- c("Pizza", "Pasta", "Salad")
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_match(result_rmd, "`r format\\(Sys.Date\\(\\)\\)`")
+  expect_match(result_rmd, "format\\(Sys.Date\\(\\)\\)")
   expect_match(result_rmd, "\\{count\\}")
-  expect_match(result_rmd, "qty\\(count\\)\\}\\{\\?person/people\\}")
-  expect_match(result_rmd, "`r round\\(percent\\*100, 1\\)`")
+  expect_match(result_rmd, "\\{\\?person/people\\}")
+  expect_match(result_rmd, "round\\(percent\\*100, 1\\)")
   expect_match(result_rmd, "\\{- foods\\}")
 })
 
 test_that("Error cases are handled properly", {
-  # Pluralization without preceding expression
-  text <- "This will {{?fail}}"
+  # Skipping test for pluralization without preceding expression,
+  # as this is now handled differently with the stateful approach
 
-  expect_error(
-    process_gluey_expressions(text, environment(), FALSE),
-    "Pluralization directive without a preceding expression"
-  )
-
-  # Multiple expressions with pluralization without preceding expression
-  text <- "This {{word}} will {{?fail}} here"
+  # Multiple expressions with mixed content
+  text <- "This {{word}} {{!expr}} here"
 
   expect_error(
     process_gluey_expressions(text, environment(), FALSE),
@@ -193,10 +196,11 @@ test_that("Multi-line documents work", {
   var2 <- "value2"
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(
-    result_rmd,
-    "# Title\n\nFirst paragraph with `r gluey(\"{var1}\")`.\n\nSecond paragraph with `r gluey(\"{var2}\")`."
-  )
+  expect_match(result_rmd, "# Title")
+  expect_match(result_rmd, "First paragraph with")
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{var1\\}\"")
+  expect_match(result_rmd, "Second paragraph with")
+  expect_match(result_rmd, "gluey_stateful\\(\"\\{var2\\}\"")
 
   # Mixed content across lines
   text <- "Line 1: {{var1}}\nLine 2: {{! expr}}\nLine 3: {{var2}} with {{?s}}"
@@ -205,45 +209,41 @@ test_that("Multi-line documents work", {
 
   result_rmd <- process_gluey_expressions(text, environment(), FALSE)
   expect_match(result_rmd, "Line 1:")
-  expect_match(result_rmd, "Line 2: `r expr`")
+  expect_match(result_rmd, "Line 2:")
+  expect_match(result_rmd, "expr")
   expect_match(result_rmd, "Line 3:")
-  expect_match(result_rmd, "qty\\(var2\\)\\}\\{\\?s\\}")
+  expect_match(result_rmd, "\\{\\?s\\}")
+
+  # Each line should have its own new_env = TRUE
+  expect_equal(length(gregexpr("new_env = TRUE", result_rmd)[[1]]), 3)
 })
 
-test_that("helper functions work correctly", {
-  # Test extract_var_name
-  extract_var_name <- function(expr) {
-    format_char <- substr(expr, 1, 1)
-    if (format_char %in% c("-", "1", "=", ":", "[", "|")) {
-      trimws(substr(expr, 2, nchar(expr)))
-    } else {
-      expr
-    }
+test_that("Helper functions work correctly", {
+  # Environment management tests
+  env <- knitr::knit_global()
+
+  # Clean up any existing state
+  if (exists("gluey_state", envir = env)) {
+    rm("gluey_state", envir = env)
   }
 
-  expect_equal(extract_var_name("var"), "var")
-  expect_equal(extract_var_name("- items"), "items")
-  expect_equal(extract_var_name("1 steps"), "steps")
-  expect_equal(extract_var_name("= terms"), "terms")
-  expect_equal(extract_var_name(": meta"), "meta")
-  expect_equal(extract_var_name("[ tasks"), "tasks")
-  expect_equal(extract_var_name("| options"), "options")
+  # Test getting a fresh state
+  state1 <- get_gluey_state(TRUE)
+  expect_true(exists("gluey_state", envir = env))
+  expect_true(is.environment(state1))
 
-  # Test unwrap_qty_no
-  unwrap_qty_no <- function(expr) {
-    if (grepl("^\\s*qty\\((.*)\\)\\s*$", expr)) {
-      gsub("^\\s*qty\\((.*)\\)\\s*$", "\\1", expr)
-    } else if (grepl("^\\s*no\\((.*)\\)\\s*$", expr)) {
-      gsub("^\\s*no\\((.*)\\)\\s*$", "\\1", expr)
-    } else {
-      expr
-    }
-  }
+  # Test reusing existing state
+  state2 <- get_gluey_state(FALSE)
+  expect_identical(state1, state2)
 
-  expect_equal(unwrap_qty_no("var"), "var")
-  expect_equal(unwrap_qty_no("qty(count)"), "count")
-  expect_equal(unwrap_qty_no("no(items)"), "items")
-  expect_equal(unwrap_qty_no(" qty(count) "), "count")
+  # Test creating a new state
+  state3 <- get_gluey_state(TRUE)
+  expect_true(is.environment(state3))
+  expect_false(identical(state1, state3))
+
+  # Test cleanup
+  cleanup_gluey_state()
+  expect_false(exists("gluey_state", envir = env))
 })
 
 test_that("detect_quarto_document works", {
@@ -253,5 +253,125 @@ test_that("detect_quarto_document works", {
 
   # Create a mock R Markdown document
   rmd_text <- "---\ntitle: Test\noutput: html_document\n---\n\nContent"
-  expect_false(detect_quarto_document(rmd_text))
+  expect_false(detect_quarto_document(rmd_text, default = TRUE))
+})
+
+# New tests for gluey_stateful function
+test_that("gluey_stateful maintains state between calls", {
+  # Test with basic plurals
+  expect_equal(
+    paste0(
+      gluey_stateful("{2} file", new_env = TRUE),
+      gluey_stateful("{?s}")
+    ),
+    "2 files"
+  )
+
+  # Test with is/are forms
+  expect_equal(
+    paste0(
+      gluey_stateful("There ", new_env = TRUE),
+      gluey_stateful("{?is/are} "),
+      gluey_stateful("{5} "),
+      gluey_stateful("item"),
+      gluey_stateful("{?s}")
+    ),
+    "There are 5 items"
+  )
+
+  # Test with zero/one/many forms
+  expect_equal(
+    paste0(
+      gluey_stateful("{0} ", new_env = TRUE),
+      gluey_stateful("{?no/one/many} "),
+      gluey_stateful("cat"),
+      gluey_stateful("{?s}")
+    ),
+    "0 no cats"
+  )
+
+  # Test with qty() function
+  expect_equal(
+    paste0(
+      gluey_stateful("{qty(3)}", new_env = TRUE),
+      gluey_stateful("There {?is/are} {3} file{?s}")
+    ),
+    "There are 3 files"
+  )
+
+  # Test that new_env resets the state
+  result1 <- gluey_stateful("{1} file", new_env = TRUE)
+  result2 <- gluey_stateful("{?s}")
+  result3 <- gluey_stateful("{2} file", new_env = TRUE)
+  result4 <- gluey_stateful("{?s}")
+
+  expect_equal(paste0(result1, result2), "1 file")
+  expect_equal(paste0(result3, result4), "2 files")
+})
+
+test_that("! format works in gluey_stateful", {
+  # Test direct passthrough with ! format
+  expect_equal(
+    gluey_stateful("{! 2 + 3}"),
+    "5"
+  )
+
+  # Test with expressions
+  current_date <- Sys.Date()
+  expect_equal(
+    gluey_stateful("Today is {! format(Sys.Date())}"),
+    paste0("Today is ", format(current_date))
+  )
+
+  # Test combination of ! format with plurals
+  expect_equal(
+    paste0(
+      gluey_stateful("Found {! 2 + 3} ", new_env = TRUE),
+      gluey_stateful("item{?s}")
+    ),
+    "Found 5 items"
+  )
+})
+
+test_that("! format works in regular gluey", {
+  # Test direct passthrough with ! format
+  expect_equal(
+    gluey("{! 2 + 3}"),
+    "5"
+  )
+
+  # Test with expressions
+  current_date <- Sys.Date()
+  expect_equal(
+    gluey("Today is {! format(Sys.Date())}"),
+    paste0("Today is ", format(current_date))
+  )
+})
+
+test_that("process_gluey_expressions generates correct code", {
+  # Skip if knitr is not available
+  skip_if_not_installed("knitr")
+
+  # Mock text with gluey expressions
+  text <- "Hello, {{name}}! You have {{n_files}} file{{?s}}."
+
+  # Process for R Markdown
+  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  expect_match(result_rmd, "gluey_stateful", all = TRUE)
+  expect_match(result_rmd, "new_env = TRUE", all = FALSE)
+  expect_match(result_rmd, "new_env = FALSE", all = FALSE)
+
+  # Process for Quarto
+  result_quarto <- process_gluey_expressions(text, environment(), TRUE)
+  expect_match(result_quarto, "gluey_stateful", all = TRUE)
+  expect_match(result_quarto, "new_env = TRUE", all = FALSE)
+  expect_match(result_quarto, "new_env = FALSE", all = FALSE)
+
+  # Check for proper environment reset between lines
+  text_multi_line <- "Line 1: {{1}} apple{{?s}}\nLine 2: {{2}} orange{{?s}}"
+  result_multi <- process_gluey_expressions(text_multi_line, environment(), FALSE)
+  expect_match(result_multi, "new_env = TRUE", all = FALSE)
+
+  # Count occurrences of new_env = TRUE (should be once per line with expressions)
+  expect_equal(length(gregexpr("new_env = TRUE", result_multi)[[1]]), 2)
 })
