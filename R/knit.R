@@ -5,6 +5,7 @@
 #'
 #' @param input Input file path
 #' @param output Output file path (or NULL)
+#' @param envir Environment for evaluation
 #' @param ... Additional arguments to pass to knit or quarto_render
 #'
 #' @return The result of the rendering process
@@ -33,6 +34,12 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
   return(result)
 }
 
+#' @export
+#' @rdname gluey_knit
+gluey_render <- function(input, ...) {
+  gluey_knit(input, ...)
+}
+
 #' Process gluey expressions in a document
 #'
 #' @param text Document text
@@ -42,7 +49,7 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
 #' @return Processed text
 #' @noRd
 process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, test_env = NULL) {
-  # Helper function to format expressions
+  # Helper function to format expressions for R Markdown or Quarto
   format_expr <- function(expr, is_quarto) {
     if (is_quarto) paste0("{{", expr, "}}") else paste0("`r ", expr, "`")
   }
@@ -61,45 +68,31 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, t
       next
     }
 
+    # Extract all expressions from the line
     all_exprs <- regmatches(line, expr_matches)[[1]]
     expr_contents <- gsub("\\{\\{([^{}]*)\\}\\}", "\\1", all_exprs)
 
-    # Process expressions on this line
-    is_first_expr <- TRUE
-
+    # Create a substitution mapping
+    original_to_gluey <- list()
     for (j in seq_along(all_exprs)) {
-      orig_expr <- all_exprs[j]
-      expr <- expr_contents[j]
-
-      # Escape quotes in the expression
-      expr_escaped <- gsub("\"", "\\\\\"", expr)
-
-      # Create the replacement
-      # First expression on a line creates a new environment
-      replacement <- format_expr(
-        paste0(
-          "gluey_stateful(\"{", expr_escaped, "}\", new_env = ",
-          ifelse(is_first_expr, "TRUE", "FALSE"), ")"
-        ),
-        is_quarto
-      )
-
-      # Replace in the line
-      line <- sub(orig_expr, replacement, line, fixed = TRUE)
-      is_first_expr <- FALSE
+      original_to_gluey[[all_exprs[j]]] <- paste0("{", expr_contents[j], "}")
     }
 
-    processed_lines[i] <- line
+    # Replace all original expressions with gluey-style expressions
+    modified_line <- line
+    for (orig in names(original_to_gluey)) {
+      modified_line <- gsub(orig, original_to_gluey[[orig]], modified_line, fixed = TRUE)
+    }
+
+    # Escape quotes in the modified line
+    escaped_line <- gsub('"', '\\\\"', modified_line, fixed = TRUE)
+
+    # Wrap the entire line in a single gluey call
+    gluey_call <- paste0('gluey("', escaped_line, '")')
+
+    # Format for R Markdown or Quarto
+    processed_lines[i] <- format_expr(gluey_call, is_quarto)
   }
 
-  # Clean up the state environment
-  cleanup_gluey_state(test_env)
-
   return(paste(processed_lines, collapse = "\n"))
-}
-
-#' @export
-#' @rdname gluey_knit
-gluey_render <- function(input, ...) {
-  gluey_knit(input, ...)
 }

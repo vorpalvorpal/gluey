@@ -1,12 +1,3 @@
-#' @title Gluey: Markdown Text Generation with Enhanced Templates
-#' @description Generate markdown text using familiar glue syntax with enhanced
-#' templating features and pluralization.
-#'
-#' @import glue
-#' @importFrom uuid UUIDgenerate
-#' @importFrom pander pandoc.table
-"_PACKAGE"
-
 #' Create a transformer function for gluey processing
 #'
 #' @param values Environment to store state for pluralization
@@ -22,14 +13,17 @@ create_gluey_transformer <- function(values) {
 
     # Check if this is a pluralization directive
     if (substr(code, 1, 1) == "?") {
-      # The most recent expression sets the quantity
-      if (identical(values$qty, values$empty)) {
-        values$postprocess <- TRUE
-        id <- uuid::UUIDgenerate()
-        values$pmarkers[[id]] <- code
-        return(id)
-      } else {
+      # Store pluralization marker regardless of whether we have a quantity
+      values$postprocess <- TRUE
+      id <- uuid::UUIDgenerate()
+      values$pmarkers[[id]] <- code
+
+      # If we already have a quantity, we can process it now
+      # Otherwise, return the ID for later processing
+      if (!identical(values$qty, values$empty)) {
         return(process_plural(make_quantity(values$qty), code))
+      } else {
+        return(id)
       }
     }
 
@@ -128,7 +122,12 @@ create_gluey_transformer <- function(values) {
       return(paste0("![](", tmp, ")"))
     }
 
-    # Use our own vector formatting
+    # Handle qty_marker objects (returned by qty() function)
+    if (inherits(expr, "qty_marker")) {
+      return("")
+    }
+
+    # Use our own vector formatting for everything else
     return(glue_vec(expr))
   }
 }
@@ -161,42 +160,6 @@ gluey <- function(text, ..., .envir = parent.frame()) {
   values$num_subst <- 0L
   values$postprocess <- FALSE
   values$pmarkers <- list()
-
-  # Create a transformer function that handles our special markup
-  transformer <- create_gluey_transformer(values)
-
-  # Process with glue
-  raw <- glue::glue(text, .envir = .envir, .transformer = transformer)
-
-  # Post-process pluralization markers
-  if (values$postprocess) {
-    raw <- post_process_plurals(raw, values)
-  }
-
-  return(raw)
-}
-
-#' Format text with glue syntax, maintaining state across multiple calls
-#'
-#' This function works like `gluey()` but maintains pluralization state
-#' across multiple calls. This is primarily used for document processing
-#' where expressions are split across multiple calls.
-#'
-#' @param text Text template with glue-style interpolation
-#' @param ... Additional values to use for interpolation
-#' @param .envir Environment for evaluation
-#' @param new_env Whether to create a fresh state environment
-#' @return Formatted text
-#' @export
-#' @examples
-#' # First expression sets up the environment and stores the quantity
-#' gluey_stateful("Found {2} file", new_env = TRUE)
-#'
-#' # Second expression uses the quantity from the first
-#' gluey_stateful("{?s}")
-gluey_stateful <- function(text, ..., .envir = parent.frame(), new_env = FALSE) {
-  # Get or create the state environment
-  values <- get_gluey_state(new_env)
 
   # Create a transformer function that handles our special markup
   transformer <- create_gluey_transformer(values)

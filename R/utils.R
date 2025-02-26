@@ -8,7 +8,12 @@
 #' @return Environment containing pluralization state
 #' @noRd
 get_gluey_state <- function(new_env = FALSE, test_env = NULL) {
-  # Use test environment if provided, otherwise use knitr's global env
+  # Use test environment if provided, otherwise check for a test environment option
+  if (is.null(test_env)) {
+    test_env <- getOption("gluey.test_env")
+  }
+
+  # Use test environment if available, otherwise use knitr's global env
   knit_env <- if (!is.null(test_env)) {
     test_env
   } else if (requireNamespace("knitr", quietly = TRUE)) {
@@ -52,7 +57,12 @@ get_gluey_state <- function(new_env = FALSE, test_env = NULL) {
 #' @return Invisible NULL
 #' @noRd
 cleanup_gluey_state <- function(test_env = NULL) {
-  # Use test environment if provided, otherwise use knitr's global env
+  # Use test environment if provided, otherwise check for a test environment option
+  if (is.null(test_env)) {
+    test_env <- getOption("gluey.test_env")
+  }
+
+  # Use test environment if available, otherwise use knitr's global env
   knit_env <- if (!is.null(test_env)) {
     test_env
   } else if (requireNamespace("knitr", quietly = TRUE)) {
@@ -71,7 +81,8 @@ cleanup_gluey_state <- function(test_env = NULL) {
 
   # Only try to remove if it exists
   if (exists("gluey_state", envir = knit_env)) {
-    rm("gluey_state", envir = knit_env)
+    # Use try to suppress warnings if removal fails
+    try(rm("gluey_state", envir = knit_env), silent = TRUE)
   }
 
   invisible(NULL)

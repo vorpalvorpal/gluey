@@ -65,24 +65,10 @@ process_plural <- function(qty, code) {
 post_process_plurals <- function(str, values) {
   if (!values$postprocess) return(str)
 
-  if (values$num_subst == 0) {
-    cli::cli_abort(c(
-      "Cannot pluralize without a quantity",
-      "i" = "Each pluralization directive {?s} needs an associated quantity expression {n}",
-      "x" = "There was no quantity expression found for the {?} directive",
-      ">" = "Use {.code gluey(\"Found {{n}} file{{?s}}\")} with a defined variable {.var n}"
-    ))
-  }
-
-  # For compatibility with cli::pluralize, enforce a single quantity
-  if (values$num_subst > 1) {
-    cli::cli_abort(c(
-      "Multiple pluralisations linked to a single quantity",
-      "i" = "Each quantity should determine pluralisation of exactly one string",
-      "x" = "Found {values$num_subst} strings relying on a single quantity",
-      ">" = "Use the {.fn qty} function to explictly set the quantity of a string without the quantity appearing in the output. eg:",
-      ">" = "{.code gluey(\"There {{qty(2)}}{{?is/are}} {{2}} {{?box/boxes}} and {{1}} {{?bag/bags}}\")}"
-    ))
+  # For stateful processing, if we don't have a quantity yet,
+  # just return the string with markers intact for later processing
+  if (identical(values$qty, values$empty) || values$num_subst == 0) {
+    return(str)
   }
 
   # Use the quantity
