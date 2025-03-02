@@ -28,7 +28,7 @@ setup_gluey_preprocessing <- function(enabled = TRUE) {
     })
   }
 
-  message("gluey preprocessing enabled")
+  # message("gluey preprocessing enabled")
 }
 
 #' Check if the document has gluey processing enabled via YAML header

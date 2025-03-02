@@ -83,10 +83,9 @@ glue_vec <- function(.x,
   # Handle empty vectors
   if (length(.x) == 0) return("")
 
-  # Convert to character if needed
-  if (!is.character(.x)) {
-    .x <- as.character(.x)
-  }
+  # clean
+  if (rlang::is_list(.x)) .x <- unlist(.x)
+  if (!is.character(.x)) .x <- vctrs::vec_cast(.x, to = "character")
 
   # Apply item transformers
   x_transformed <- .transformer_item(.x)
