@@ -37,7 +37,7 @@ create_gluey_transformer <- function(values) {
     }
 
     # Check if this is a special markdown formatter
-    if (grepl("^[-=:1[]\\s+.+", code)) {
+    if (grepl("^[-\\+\\*=:1[]\\s+.+", code)) {
       format_type <- substr(code, 1, 1)
       expr_text <- trimws(substr(code, 2, nchar(code)))
 
@@ -59,6 +59,10 @@ create_gluey_transformer <- function(values) {
       # Format according to the type
       if (format_type == "-") {
         return(glue_vec(expr, .item = "- {.item}", .sep = "\n", .last = "\n"))
+      } else if (format_type == "+") {
+        return(glue_vec(expr, .item = "+ {.item}", .sep = "\n", .last = "\n"))
+      } else if (format_type == "*") {
+        return(glue_vec(expr, .item = "* {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == "1") {
         return(glue_vec(expr, .item = "1. {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == "=") {
