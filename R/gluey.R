@@ -59,6 +59,10 @@ create_gluey_transformer <- function(values) {
       # Format according to the type
       if (format_type == "-") {
         return(glue_vec(expr, .item = "- {.item}", .sep = "\n", .last = "\n"))
+      else if (format_type == "+") {
+        return(glue_vec(expr, .item = "+ {.item}", .sep = "\n", .last = "\n"))
+      else if (format_type == "*") {
+        return(glue_vec(expr, .item = "* {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == "1") {
         return(glue_vec(expr, .item = "1. {.item}", .sep = "\n", .last = "\n"))
       } else if (format_type == "=") {
