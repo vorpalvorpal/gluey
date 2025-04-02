@@ -5,7 +5,9 @@
 #' and follows a functional approach for vector processing.
 #'
 #' @param .x Vector to format
-#' @param .item Template for each item using `{.item}` and `{.name}` for interpolation
+#' @param .item Template for each item using `{.item}`, (list item) `{.name}`,
+#'   (list item name) `{.x}` (vector supplied to `.x`) and  `{.i}` (current items
+#'   position) for interpolation
 #' @param .vec Template for the entire vector using `{.vec}` for interpolation
 #' @param .sep Separator between items (default: ", ")
 #' @param .last Separator before the last item (default: ", and ")
@@ -85,10 +87,9 @@ glue_vec <- function(.x,
 
   # clean
   if (rlang::is_list(.x)) .x <- unlist(.x)
-  if (!is.character(.x)) .x <- vctrs::vec_cast(.x, to = "character")
 
   # Apply item transformers
-  x_transformed <- .transformer_item(.x)
+  x_transformed <- .transformer_item(as.character(.x))
 
   # Process each item with names if available
   has_names <- !is.null(names(.x)) && any(names(.x) != "")
@@ -99,9 +100,11 @@ glue_vec <- function(.x,
 
     # Apply item template to each item with its name
     formatted_items <- vapply(seq_along(.x), function(i) {
-      item_env <- new.env(parent = .envir)
+      item_env       <- new.env(parent = .envir)
       item_env$.item <- x_transformed[i]
       item_env$.name <- names_transformed[i]
+      item_env$.x  <- .x
+      item_env$.i    <- i
       glue::glue(.item, .envir = item_env, .na = .na, ...)
     }, character(1))
   } else {
@@ -110,6 +113,8 @@ glue_vec <- function(.x,
       item_env <- new.env(parent = .envir)
       item_env$.item <- x_transformed[i]
       item_env$.name <- ""
+      item_env$.x  <- .x
+      item_env$.i    <- i
       glue::glue(.item, .envir = item_env, .na = .na, ...)
     }, character(1))
   }

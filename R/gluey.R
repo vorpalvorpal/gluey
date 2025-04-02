@@ -4,8 +4,48 @@
 #' @return A function that can be used as a glue transformer
 #' @noRd
 create_gluey_transformer <- function(values) {
+  # TODO:
+  #   New format: "{format expr [params]}"
+  #     .inline: any cli inline markup or any crayon command (preceded with dot).
+  #        expr is treated as plain text. To work with expressions (including
+  #        other formatters), place within `{}`
+  #              "{.red the cat sat on the mat}"
+  #              foo <- "the cat sat on the mat"
+  #              "{.emph {foo}}"
+  #     ?:       cli-style pluralisation. expr is treated as text unless it is
+  #         placed within `{}`.
+  #              {? s}: length(x) > 1
+  #              {? cat/cats} length(x) == 1/length(x) > 1
+  #              {? no/cat/cats} length(x) == 0/length(x) == 1/length(x) > 1
+  #              {? no/cat/2 cats/more cats} length(x) ==0/length(x) == 1/length(x) == 2/length(x) > 2 (can be extended to arbitrary length)
+  #              {? cat/cats [var]} var defines the variable to use to choose pluralisation. Useful where it is not clear from context.
+  #     !:       evaluate expr directly via glue
+  #     list:    various types of bullet lists
+  # .    #:       Render expr as a markdown table. expr must be a dataframe or
+  #              coerciable into one (eg. a matrix or list)
+  #     <xml>:   <yaml>/<dl> maybe some others?
+  #     None:
+  #              - If valid filepath, embed file.
+  #              - If simple vector combine with 'and' (like `cli`)
+  #                {c(1,2,3)}: "1, 2 and 3"
+  #                {c(1,2,3) [last = "or"]} "1, 2, or 3"
+  #              - If ggplot, plot, graphics object, insert image
+  #              - If handled by `report::report` use `report`
+  #                "{iris}": report::report(iris)
+  #                "{iris [table]}": report::report_table(iris)
+  #              - If none of the above, pass directly to glue
+  #
+  # ISSUES:
+  #   - some formats treat `expr` as text and require secondary level brackets for
+  #     objects, while others expect `expr` to be an object. This is potentially
+  #     confusing
+  #   - params is possibly a bit unclear. Should we handle `.inline` as params
+  #     rather than as a format?
+  #   - Not sure about <xml>
   function(code, envir) {
-    # Handle direct glue expression with ! prefix
+    ##############################
+    ### direct glue expression ###
+    ##############################
     if (substr(code, 1, 1) == "!") {
       expr_text <- trimws(substr(code, 2, nchar(code)))
 
@@ -21,10 +61,10 @@ create_gluey_transformer <- function(values) {
       # Return the result directly
       if (is.null(result)) return("")
       return(as.character(result))
-    }
-
-    # Check if this is a pluralization directive
-    if (substr(code, 1, 1) == "?") {
+      ###############################
+      ### pluralization directive ###
+      ###############################
+    } else if (substr(code, 1, 1) == "?") {
       # The most recent expression sets the quantity
       if (identical(values$qty, values$empty)) {
         values$postprocess <- TRUE
@@ -34,55 +74,142 @@ create_gluey_transformer <- function(values) {
       } else {
         return(process_plural(make_quantity(values$qty), code))
       }
-    }
-
-    # Check if this is a special markdown formatter
-    if (grepl("^[-\\+\\*=:1[]\\s+.+", code)) {
-      format_type <- substr(code, 1, 1)
-      expr_text <- trimws(substr(code, 2, nchar(code)))
-
-      # Evaluate the expression
-      expr <- tryCatch(
-        eval(parse(text = expr_text, keep.source = FALSE), envir = envir),
-        error = function(e) {
-          warning("Failed to evaluate {", code, "}: ", e$message)
-          return(NULL)
-        }
-      )
-
+      ###########################
+      ### Markdown formatters ###
+      ###########################
+    } else if (stringr::str_detect(code, "^[-\\+\\*=:\\d].+$")) {
       # Update quantity for pluralization
       values$num_subst <- values$num_subst + 1
-      values$qty <- expr
 
-      if (is.null(expr)) return("")
+      ####################
+      ### bullet lists ###
+      ####################
+      if (substr(code, 1, 1) %in% c("-", "*", "+")) {
+        #################
+        ### todo list ###
+        #################
+        todo <- stringr::str_extract(code, "^[-\\+\\*]\\s{0,1}\\[(.){0,1}\\]\\s+(.+)$", group = c(1, 2))
+        if (!(is.na(todo)[[2]])) {
+          checkbox  <- ifelse(is.na(todo[[1]]), " ", todo[[1]])
+          expr_text <- stringr::str_trim(todo[[2]])
+          expr      <- tryCatch(
+            eval(parse(text = expr_text, keep.source = FALSE), envir = envir),
+            error = function(e) {
+              warning("Failed to evaluate {", expr_text, "}: ", e$message)
+              return(NULL)
+            }
+          )
+          # Create bullet vector
+          if (!is.null(names(expr)) && all(nchar(names) %in% c(1, 0))) {
+            names(expr) <- purrr::map_chr(
+              names(expr),
+              \(name) {
+                if (name == "") {
+                  glue::glue("{substr(code, 1, 1)} [{checkbox}]")
+                } else {
+                  glue::glue("{substr(code, 1, 1)} [{name}]")
+                }
+              })
+          } else names(expr) <- glue::glue("{substr(code, 1, 1)} [{rep(checkbox, length(expr))}]")
+        } else {
+          ############################
+          ### standard bullet list ###
+          ############################
+          expr_text <- stringr::str_trim(substr(code, 2, nchar(code)))
+          expr      <- tryCatch(
+            eval(parse(text = expr_text, keep.source = FALSE), envir = envir),
+            error = function(e) {
+              warning("Failed to evaluate {", expr_text, "}: ", e$message)
+              return(NULL)
+            }
+          )
+          if (!is.null(expr)) names(expr) <- rep(substr(code, 1, 1), length(expr))
+        }
+        values$qty <- expr
+        if (is.null(expr)) {
+          return("")
+        } else {
+          return(glue_vec(expr, .item = "{.name} {.item}", .sep = "\n", .last = "\n"))
+        }
+        #####################
+        ### ordered lists ###
+        #####################
+      } else if (stringr::str_detect(substr(code, 1, 1), "\\d")) {
+        bullet    <- stringr::str_extract(
+          code,
+          "^(\\d+)(\\S)*\\s+(.+)$",
+          group = c(1, 2, 3))
+        n         <- as.numeric(bullet[[1]]) - 1
+        delim     <- ifelse(bullet[[2]] == "", ".", bullet[[2]])
+        if (is.na(bullet[[3]])) {
+          cli::cli_abort("Failed to evaluate {code}")
+        } else expr_text <- stringr::str_trim(bullet[[3]])
+        expr <- tryCatch(
+          eval(parse(text = expr_text, keep.source = FALSE), envir = envir),
+          error = function(e) {
+            warning("Failed to evaluate {", expr_text, "}: ", e$message)
+            return(NULL)
+          }
+        )
+        values$qty <- expr
+        if (is.null(expr)) {
+          return("")
+        } else {
+          names(expr) <- rep(paste0(n, delim), length(expr))
+          return(glue_vec(expr, .item = "{as.numeric(stringr::str_extract(.name, '^\\\\d+')) + .i}{stringr::str_extract(.name, '^\\\\d+(.+)$', group = 1)} {.item}", .sep = "\n", .last = "\n"))
+        }
+        #######################
+        ### Definition list ###
+        #######################
+        # TODO: is there a better option than '='? ':'? '<dl>'?
+        # TODO: Find all items that have the same name and combine them so that
+        #   the output is:
+        #       foo
+        #       :   bar
+        #       :   baz
+        #   instead of:
+        #       foo
+        #       :   bar
+        #       foo
+        #       :   baz
+      } else if (substr(code, 1, 1) == "=") {
+        expr_text <- trimws(substr(code, 2, nchar(code)))
+        expr <- tryCatch(
+          eval(parse(text = expr_text, keep.source = FALSE), envir = envir),
+          error = function(e) {
+            warning("Failed to evaluate {", expr_text, "}: ", e$message)
+            return(NULL)
+          }
+        )
+        values$qty <- expr
+        if (is.null(expr)) return("")
 
-      # Format according to the type
-      if (format_type == "-") {
-        return(glue_vec(expr, .item = "- {.item}", .sep = "\n", .last = "\n"))
-      } else if (format_type == "+") {
-        return(glue_vec(expr, .item = "+ {.item}", .sep = "\n", .last = "\n"))
-      } else if (format_type == "*") {
-        return(glue_vec(expr, .item = "* {.item}", .sep = "\n", .last = "\n"))
-      } else if (format_type == "1") {
-        return(glue_vec(expr, .item = "1. {.item}", .sep = "\n", .last = "\n"))
-      } else if (format_type == "=") {
         if (is.null(names(expr)) || any(names(expr) == "")) {
           stop("Definition lists require named vectors")
         }
         return(glue_vec(expr, .item = "{.name}\n:    {.item}", .sep = "\n", .last = "\n"))
-      } else if (format_type == ":") {
+        ############
+        ### YAML ###
+        ############
+        # TODO: Think of a better option than ':'. Possibly '<yaml>'
+        # Like definition lists, combine items that have the same name.
+      } else if (substr(code, 1, 1) == ":") {
+        expr_text <- trimws(substr(code, 2, nchar(code)))
+        expr <- tryCatch(
+          eval(parse(text = expr_text, keep.source = FALSE), envir = envir),
+          error = function(e) {
+            warning("Failed to evaluate {", expr_text, "}: ", e$message)
+            return(NULL)
+          }
+        )
+        values$qty <- expr
+        if (is.null(expr)) return("")
+
         if (is.null(names(expr)) || any(names(expr) == "")) {
           stop("YAML formatting requires named vectors")
         }
         return(glue_vec(expr, .item = "{.name}: {.item}", .sep = "\n", .last = "\n",
           .vec = "---\n{.vec}\n---"))
-      } else if (format_type == "[") {
-        if (is.null(names(expr))) {
-          return(glue_vec(expr, .item = "- [ ] {.item}", .sep = "\n", .last = "\n"))
-        } else {
-          return(glue_vec(expr, .sep = "\n", .last = "\n",
-            .item = "- [{if (.name == '') ' ' else .name}] {.item}"))
-        }
       }
     }
 
