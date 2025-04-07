@@ -1,6 +1,6 @@
 Package: gluey
 Title: Advanced cli-like markdown glue syntax
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: 
     person("Robin", "Shannon", , "32329438+vorpalvorpal@users.noreply.github.com", role = c("aut", "cre"))
 Description: Generate markdown text using the familiar syntax of 'glue'

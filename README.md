@@ -26,7 +26,7 @@ install.packages("gluey")
 
 # Or the development version from GitHub
 # install.packages("devtools")
-devtools::install_github("user/gluey")
+devtools::install_github("vorpalvorpal/gluey")
 ```
 
 ## Syntax

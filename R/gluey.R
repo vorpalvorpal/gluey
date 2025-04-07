@@ -5,42 +5,58 @@
 #' @noRd
 create_gluey_transformer <- function(values) {
   # TODO:
-  #   New format: "{format expr [params]}"
+  #   New format: "{formatter expr [params]}"
   #     .inline: any cli inline markup or any crayon command (preceded with dot).
-  #        expr is treated as plain text. To work with expressions (including
-  #        other formatters), place within `{}`
-  #              "{.red the cat sat on the mat}"
-  #              foo <- "the cat sat on the mat"
-  #              "{.emph {foo}}"
+  #              expr is treated as plain text. To work with expressions
+  #              (including other formatters), place within `{}`
+  #                "{.red the cat sat on the mat}"
+  #                foo <- "the cat sat on the mat"
+  #                "{.emph {foo}}"
   #     ?:       cli-style pluralisation. expr is treated as text unless it is
-  #         placed within `{}`.
-  #              {? s}: length(x) > 1
-  #              {? cat/cats} length(x) == 1/length(x) > 1
-  #              {? no/cat/cats} length(x) == 0/length(x) == 1/length(x) > 1
-  #              {? no/cat/2 cats/more cats} length(x) ==0/length(x) == 1/length(x) == 2/length(x) > 2 (can be extended to arbitrary length)
-  #              {? cat/cats [var]} var defines the variable to use to choose pluralisation. Useful where it is not clear from context.
-  #     !:       evaluate expr directly via glue
-  #     list:    various types of bullet lists
-  # .    #:       Render expr as a markdown table. expr must be a dataframe or
-  #              coerciable into one (eg. a matrix or list)
-  #     <xml>:   <yaml>/<dl> maybe some others?
+  #              placed within `{}`.
+  #                - {? s}: length(x) > 1
+  #                - {? cat/cats} length(x) == 1/length(x) > 1
+  #                - {? no/cat/cats} length(x) == 0/length(x) == 1/length(x) > 1
+  #                - {? no/cat/2 cats/more cats} length(x) ==0/length(x) == 1/length(x) == 2/length(x) > 2 (can be extended to arbitrary length)
+  #                - {? cat/cats [var]} var defines the variable to use to choose pluralisation. Useful where it is not clear from context.
+  #     -:      bullet list
+  #     1.:     ordered list
+  #     - [ ]:  todo list
+  #     #:      Render expr as a markdown table. expr must be a dataframe or
+  #             coerciable into one (eg. a matrix or list).
+  #               - Models should be rendered as summary tables via
+  #                 `report`/`modelsummary`/`gtsummary`?
+  #     %:      Render as plot. For dataframes or things coerciable into them,
+  #             use: ggplot2::qplot() with first two columns.
+  #             For models use `report`/`modelsummary`
+  #     %%:     Render as plot using `GGally::ggpairs()`.
+  #     <xml>:  <yaml>/<dl> maybe some others????
+  #     &:      Combine with 'and'
+  #     |:      Combine with 'or'
+  #     !:      Embed file(s) using names as titles
+  #     $:      Latex maths - convert [asciimaths](https://asciimath.org/) to
+  #             LaTeX (inline) - also have a look at [mathup](https://mathup.xyz/)
+  #     $$:     asciimaths to Latex maths block
+  #     >:      evaluate expr directly via glue
   #     None:
-  #              - If valid filepath, embed file.
+  #              - If existing filepath(s), embed file.
   #              - If simple vector combine with 'and' (like `cli`)
   #                {c(1,2,3)}: "1, 2 and 3"
   #                {c(1,2,3) [last = "or"]} "1, 2, or 3"
   #              - If ggplot, plot, graphics object, insert image
-  #              - If handled by `report::report` use `report`
-  #                "{iris}": report::report(iris)
-  #                "{iris [table]}": report::report_table(iris)
+  #              - If dataframe/coerciable to dataframe print as markdowntable
+  #              - If model print summary with `report::report`
   #              - If none of the above, pass directly to glue
+  #              - To use special characters without formatter leave a space as
+  #                the first character:
+  #                - "{.emph * 2}": '* 2' with the .emph formatter
+  #                - "{ .emph * 2}: The object `.emph` multiplied by 2.
   #
   # ISSUES:
   #   - some formats treat `expr` as text and require secondary level brackets for
   #     objects, while others expect `expr` to be an object. This is potentially
   #     confusing
-  #   - params is possibly a bit unclear. Should we handle `.inline` as params
-  #     rather than as a format?
+  #   - params is possibly a bit unclear.
   #   - Not sure about <xml>
   function(code, envir) {
     ##############################
